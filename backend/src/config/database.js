@@ -1,152 +1,171 @@
 'use strict';
 
-const mysql = require('mysql2/promise');
+const mongoose = require('mongoose');
 const logger = require('./logger');
-const { MESSAGES, TIMEOUTS, DB } = require('./constants');
+const { MESSAGES, DB_CONSTANTS } = require('./constants');
 
-let pool = null;
-let retryCount = 0;
+const NODE_ENV = process.env.NODE_ENV || 'development';
 
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT, 10) || 3306,
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'notes_app',
-  waitForConnections: true,
-  connectionLimit: parseInt(process.env.DB_POOL_MAX, 10) || DB.MAX_POOL,
-  queueLimit: 0,
-  connectTimeout: TIMEOUTS.DB_CONNECT,
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 0,
+/**
+ * Resolve the MongoDB connection string for the current environment.
+ * The test environment uses a separate database so suites never touch dev data.
+ * @returns {string}
+ */
+function getMongoUri() {
+  if (NODE_ENV === 'test') {
+    return (
+      process.env.MONGODB_URI_TEST ||
+      process.env.MONGODB_URI ||
+      'mongodb://localhost:27017/notes_app_test'
+    );
+  }
+  return process.env.MONGODB_URI || 'mongodb://localhost:27017/notes_app';
+}
+
+const connectionOptions = {
+  maxPoolSize: parseInt(process.env.MONGODB_MAX_POOL_SIZE, 10) || DB_CONSTANTS.MAX_POOL_SIZE,
+  serverSelectionTimeoutMS:
+    parseInt(process.env.MONGODB_SERVER_SELECTION_TIMEOUT, 10) || DB_CONSTANTS.CONNECTION_TIMEOUT,
+  socketTimeoutMS:
+    parseInt(process.env.MONGODB_SOCKET_TIMEOUT, 10) || DB_CONSTANTS.SOCKET_TIMEOUT,
 };
 
-/**
- * Extract a readable reason from a mysql2 / Node.js network error.
- * mysql2 often leaves message empty and puts the reason in .code or .sqlMessage.
- */
-function errorReason(err) {
-  return err.sqlMessage || err.message || err.code || String(err);
-}
+const READY_STATE = {
+  0: 'disconnected',
+  1: 'connected',
+  2: 'connecting',
+  3: 'disconnecting',
+};
+
+let eventsBound = false;
+let hasConnectedOnce = false;
 
 /**
- * Create the connection pool. Called once at startup.
+ * Attach connection lifecycle listeners exactly once.
+ * Bound lazily so requiring this module never opens a socket.
+ *
+ * Before the first successful connection, `error`/`disconnected` events are
+ * logged at debug only: the initial-connect failure is already surfaced once
+ * by the caller as a single "degraded mode" WARN, so emitting ERROR/WARN here
+ * too would just be duplicate startup noise. After we have connected at least
+ * once, these become genuine runtime events worth surfacing loudly.
  */
-function createPool() {
-  pool = mysql.createPool(dbConfig);
+function bindConnectionEvents() {
+  if (eventsBound) return;
+  eventsBound = true;
 
-  pool.on('connection', (connection) => {
-    logger.debug({ threadId: connection.threadId }, 'New DB connection acquired');
+  const conn = mongoose.connection;
+
+  conn.on('connected', () => {
+    hasConnectedOnce = true;
+    logger.info({ host: conn.host, database: conn.name }, MESSAGES.DB_CONNECTION_SUCCESS);
   });
 
-  pool.on('enqueue', () => {
-    logger.warn('Waiting for available DB connection in pool');
-  });
-
-  return pool;
-}
-
-/**
- * Try to connect once without retrying.
- * Used for background / degraded-mode startup so the console stays quiet.
- * @returns {Promise<object>} pool on success, throws on failure.
- */
-async function connect() {
-  if (!pool) createPool();
-
-  const connection = await pool.getConnection();
-  await connection.ping();
-  connection.release();
-
-  logger.info({ host: dbConfig.host, database: dbConfig.database }, MESSAGES.DB_CONNECTION_SUCCESS);
-  return pool;
-}
-
-/**
- * Test connectivity with exponential back-off retry.
- * Use this for production startup where a brief DB unavailability is expected.
- */
-async function connectWithRetry() {
-  try {
-    return await connect();
-  } catch (error) {
-    retryCount += 1;
-
-    if (retryCount <= TIMEOUTS.DB_MAX_RETRIES) {
-      const delay = TIMEOUTS.DB_RETRY_INTERVAL * retryCount;
-      logger.warn(
-        {
-          attempt: retryCount,
-          maxRetries: TIMEOUTS.DB_MAX_RETRIES,
-          retryInMs: delay,
-          error: errorReason(error),
-        },
-        'DB connection failed - retrying'
-      );
-      await new Promise((resolve) => setTimeout(resolve, delay));
-      return connectWithRetry();
+  conn.on('error', (err) => {
+    const payload = { error: err.message || String(err) };
+    if (hasConnectedOnce) {
+      logger.error(payload, MESSAGES.DB_CONNECTION_FAILED);
+    } else {
+      logger.debug(payload, 'MongoDB connection error during initial connect');
     }
+  });
 
-    logger.error({ error: errorReason(error) }, MESSAGES.DB_CONNECTION_FAILED);
-    throw error;
-  }
+  conn.on('disconnected', () => {
+    if (hasConnectedOnce) {
+      logger.warn('MongoDB disconnected');
+    } else {
+      logger.debug('MongoDB not connected (initial connect pending/failed)');
+    }
+  });
+
+  conn.on('reconnected', () => {
+    logger.info('MongoDB reconnected');
+  });
 }
 
 /**
- * Execute a parameterised query against the pool.
+ * Connect to MongoDB.
+ *
+ * Throws on failure rather than calling process.exit so the HTTP server can
+ * keep running in "degraded" mode (the /api/health endpoint reports the
+ * database as unavailable). This mirrors the Module 1 startup contract.
+ *
+ * @param {string} [uri] - Override URI (used by tests).
+ * @returns {Promise<import('mongoose').Connection>}
  */
-async function query(sql, params = []) {
-  if (!pool) {
-    throw new Error('Database pool not initialised. Call connect() first.');
-  }
+async function connectDB(uri = getMongoUri()) {
+  bindConnectionEvents();
+  mongoose.set('strictQuery', true);
 
-  const start = Date.now();
-  try {
-    const [rows] = await pool.execute(sql, params);
-    logger.debug({ sql, durationMs: Date.now() - start }, 'Query executed');
-    return rows;
-  } catch (error) {
-    logger.error({ sql, error: errorReason(error) }, 'Query failed');
-    throw error;
-  }
+  // Let the caller decide how to report failure. In degraded-mode startup
+  // index.js logs a single WARN; re-logging an ERROR here would duplicate it.
+  await mongoose.connect(uri, connectionOptions);
+  return mongoose.connection;
 }
 
 /**
- * Gracefully close all connections in the pool.
+ * Gracefully close the MongoDB connection. Safe to call when not connected.
+ * @returns {Promise<void>}
  */
-async function closePool() {
-  if (pool) {
-    await pool.end();
-    pool = null;
-    logger.info('Database connection pool closed');
-  }
+async function disconnectDB() {
+  if (mongoose.connection.readyState === 0) return;
+  await mongoose.disconnect();
+  logger.info('MongoDB connection closed');
 }
 
 /**
- * Ping the DB - used by the health-check endpoint.
+ * Human-readable connection state: connected | connecting | disconnected | disconnecting.
+ * @returns {string}
+ */
+function getConnectionState() {
+  return READY_STATE[mongoose.connection.readyState] || 'unknown';
+}
+
+/**
+ * Connection metadata for the health endpoint.
+ * @returns {{ state: string, name: (string|null), host: (string|null) }}
+ */
+function getConnectionInfo() {
+  const conn = mongoose.connection;
+  return {
+    state: getConnectionState(),
+    name: conn.name || null,
+    host: conn.host || null,
+  };
+}
+
+/**
+ * True when the connection is live and responds to a ping.
+ * Used by the health-check endpoint.
  * @returns {Promise<boolean>}
  */
 async function checkConnection() {
   try {
-    if (!pool) return false;
-    const connection = await pool.getConnection();
-    await connection.ping();
-    connection.release();
+    if (mongoose.connection.readyState !== 1) return false;
+    await mongoose.connection.db.admin().ping();
     return true;
   } catch {
     return false;
   }
 }
 
-function getPool() {
-  return pool;
+/**
+ * Ping the database and measure round-trip latency in milliseconds.
+ * @returns {Promise<{ ok: boolean, responseTimeMs: number }>}
+ */
+async function pingDB() {
+  const start = Date.now();
+  const ok = await checkConnection();
+  return { ok, responseTimeMs: Date.now() - start };
 }
 
 module.exports = {
-  connect,
-  connectWithRetry,
-  query,
-  closePool,
+  connectDB,
+  disconnectDB,
   checkConnection,
-  getPool,
+  getConnectionState,
+  getConnectionInfo,
+  pingDB,
+  getMongoUri,
+  mongoose,
 };

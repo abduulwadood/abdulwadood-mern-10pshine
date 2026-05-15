@@ -1,65 +1,65 @@
 'use strict';
 
-// ── Mock Users ───────────────────────────────────────────────────────────────
+// ── Valid User ───────────────────────────────────────────────────────────────
 
 const validUser = {
-  id: 1,
   username: 'testuser',
   email: 'test@example.com',
-  password: 'Password1!',
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
+  password: 'TestPass123!',
+  firstName: 'Test',
+  lastName: 'User',
 };
+
+// ── Invalid Users (negative testing) ─────────────────────────────────────────
 
 const invalidUsers = {
-  missingEmail: { username: 'testuser', password: 'Password1!' },
-  invalidEmail: { username: 'testuser', email: 'not-an-email', password: 'Password1!' },
-  weakPassword: { username: 'testuser', email: 'test@example.com', password: '123' },
-  shortUsername: { username: 'ab', email: 'test@example.com', password: 'Password1!' },
+  noEmail: { username: 'testuser', password: 'TestPass123!' },
+  invalidEmail: { username: 'testuser', email: 'not-an-email', password: 'TestPass123!' },
+  shortPassword: { username: 'testuser', email: 'test@example.com', password: '123' },
+  shortUsername: { username: 'ab', email: 'test@example.com', password: 'TestPass123!' },
+  invalidUsername: { username: 'test user!', email: 'test@example.com', password: 'TestPass123!' },
 };
 
-// ── Mock Notes ───────────────────────────────────────────────────────────────
+// ── Valid Note ───────────────────────────────────────────────────────────────
 
 const validNote = {
-  id: 1,
   title: 'Test Note Title',
-  content: 'This is the note content for testing purposes.',
-  userId: 1,
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
+  content: 'This is the content of the test note.',
+  tags: ['test', 'sample'],
+  color: '#ffffff',
 };
+
+// ── Invalid Notes (negative testing) ─────────────────────────────────────────
 
 const invalidNotes = {
-  missingTitle: { content: 'Content without title' },
-  titleTooLong: { title: 'A'.repeat(256), content: 'Some content' },
-  contentTooLong: { title: 'Valid Title', content: 'A'.repeat(10001) },
+  noTitle: { content: 'Content without title' },
+  noContent: { title: 'Title without content' },
+  longTitle: { title: 'a'.repeat(201), content: 'Content' },
+  tooManyTags: { title: 'Title', content: 'Content', tags: Array(11).fill('tag') },
+  invalidColor: { title: 'Title', content: 'Content', color: 'not-a-color' },
 };
 
-// ── Mock Configs ─────────────────────────────────────────────────────────────
+// ── MongoDB ObjectId samples ─────────────────────────────────────────────────
+
+const validObjectId = '507f1f77bcf86cd799439011';
+const invalidObjectId = 'not-a-valid-objectid';
+
+// ── Misc fixtures retained from Module 1 ─────────────────────────────────────
 
 const mockEnvConfig = {
   PORT: '5000',
   NODE_ENV: 'test',
-  DB_HOST: 'localhost',
-  DB_PORT: '3306',
-  DB_USER: 'testuser',
-  DB_PASSWORD: 'testpassword',
-  DB_NAME: 'notes_test',
+  MONGODB_URI: 'mongodb://localhost:27017/notes_app',
+  MONGODB_URI_TEST: 'mongodb://localhost:27017/notes_app_test',
   JWT_SECRET: 'test_secret_key_for_testing_only_32chars',
   JWT_EXPIRE: '1h',
   CORS_ORIGIN: 'http://localhost:3000',
 };
 
-// ── Mock Error Objects ───────────────────────────────────────────────────────
-
 const mockErrors = {
   validationError: {
     message: 'Validation failed',
     details: ['Email is required', 'Password is too short'],
-  },
-  dbError: {
-    code: 'ER_NO_SUCH_TABLE',
-    message: 'Table does not exist',
   },
   authError: {
     message: 'Authentication required',
@@ -71,6 +71,8 @@ module.exports = {
   invalidUsers,
   validNote,
   invalidNotes,
+  validObjectId,
+  invalidObjectId,
   mockEnvConfig,
   mockErrors,
 };

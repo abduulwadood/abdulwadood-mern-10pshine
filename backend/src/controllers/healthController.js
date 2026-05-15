@@ -1,16 +1,19 @@
 'use strict';
 
-const { checkConnection } = require('../config/database');
-const { sendSuccess } = require('../utils/responseHandler');
+const { checkConnection, getConnectionInfo, pingDB } = require('../config/database');
 const { MESSAGES } = require('../config/constants');
 
 /**
  * GET /api/health
  * Returns a comprehensive health snapshot used by load-balancers and monitoring.
+ * The top-level envelope and data.server / data.database / data.application
+ * structure is part of the public contract and must remain stable.
  */
 async function getHealth(req, res, next) {
   try {
     const dbConnected = await checkConnection();
+    const { responseTimeMs } = await pingDB();
+    const connInfo = getConnectionInfo();
 
     const healthData = {
       status: dbConnected ? 'healthy' : 'degraded',
@@ -22,10 +25,11 @@ async function getHealth(req, res, next) {
         platform: process.platform,
       },
       database: {
+        status: connInfo.state,
         connected: dbConnected,
-        host: process.env.DB_HOST || 'localhost',
-        name: process.env.DB_NAME || 'notes_app',
-        dialect: process.env.DB_DIALECT || 'mysql',
+        name: connInfo.name || parseDbName(process.env.MONGODB_URI),
+        host: connInfo.host || 'localhost',
+        responseTime: `${responseTimeMs}ms`,
       },
       application: {
         name: process.env.APP_NAME || 'Notes App Backend',
@@ -46,6 +50,16 @@ async function getHealth(req, res, next) {
   } catch (error) {
     next(error);
   }
+}
+
+/**
+ * Extract the database name from a MongoDB connection string.
+ * Falls back to 'notes_app' when the URI is absent or unparseable.
+ */
+function parseDbName(uri) {
+  if (!uri) return 'notes_app';
+  const match = uri.match(/\/([^/?]+)(\?|$)/);
+  return match ? match[1] : 'notes_app';
 }
 
 function formatUptime(seconds) {
