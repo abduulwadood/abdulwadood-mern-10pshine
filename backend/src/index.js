@@ -4,7 +4,7 @@ require('dotenv').config();
 
 const app = require('./server');
 const logger = require('./config/logger');
-const { connect, closePool } = require('./config/database');
+const { connectDB, disconnectDB } = require('./config/database');
 const { MESSAGES } = require('./config/constants');
 
 const PORT = parseInt(process.env.PORT, 10) || 5000;
@@ -26,7 +26,7 @@ async function startServer() {
 
       // Attempt DB connection in the background (single try, no retry spam).
       // The /api/health endpoint reports "degraded" until the DB comes up.
-      connect().catch((dbError) => {
+      connectDB().catch((dbError) => {
         logger.warn(
           { error: dbError.sqlMessage || dbError.message || dbError.code || String(dbError) },
           'Database unavailable - server running in degraded mode'
@@ -56,7 +56,7 @@ async function shutdown(signal) {
   if (server) {
     server.close(async () => {
       logger.info('HTTP server closed');
-      await closePool();
+      await disconnectDB();
       logger.info(MESSAGES.SERVER_STOPPED);
       process.exit(0);
     });

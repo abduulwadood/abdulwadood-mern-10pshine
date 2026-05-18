@@ -92,6 +92,45 @@ const LOG_LEVELS = {
 // Sensitive fields to mask in logs
 const SENSITIVE_FIELDS = ['password', 'token', 'authorization', 'secret', 'apiKey', 'api_key'];
 
+// ── Module 2: MongoDB connection constants ──────────────────────────────────
+const DB_CONSTANTS = {
+  MAX_POOL_SIZE: 10,
+  CONNECTION_TIMEOUT: 5000,
+  SOCKET_TIMEOUT: 45000,
+};
+
+// ── Module 2: User model constants ──────────────────────────────────────────
+const USER_CONSTANTS = {
+  USERNAME_MIN_LENGTH: 3,
+  USERNAME_MAX_LENGTH: 30,
+  PASSWORD_MIN_LENGTH: 8,
+  PASSWORD_MAX_LENGTH: 128,
+  EMAIL_MAX_LENGTH: 255,
+  NAME_MAX_LENGTH: 50,
+  MAX_LOGIN_ATTEMPTS: 5,
+  LOCK_TIME: 2 * 60 * 60 * 1000, // 2 hours in milliseconds
+  SALT_ROUNDS: 12,
+};
+
+// ── Module 2: Note model constants ──────────────────────────────────────────
+const NOTE_CONSTANTS = {
+  TITLE_MIN_LENGTH: 1,
+  TITLE_MAX_LENGTH: 200,
+  CONTENT_MAX_LENGTH: 50000,
+  MAX_TAGS: 10,
+  TAG_MAX_LENGTH: 30,
+  DEFAULT_COLOR: '#ffffff',
+  DEFAULT_PAGE_SIZE: 10,
+  MAX_PAGE_SIZE: 100,
+};
+
+// ── Module 2: Pagination constants ──────────────────────────────────────────
+const PAGINATION_CONSTANTS = {
+  DEFAULT_PAGE: 1,
+  DEFAULT_LIMIT: 10,
+  MAX_LIMIT: 100,
+};
+
 module.exports = {
   HTTP_STATUS,
   MESSAGES,
@@ -102,4 +141,8 @@ module.exports = {
   VALIDATION,
   LOG_LEVELS,
   SENSITIVE_FIELDS,
+  DB_CONSTANTS,
+  USER_CONSTANTS,
+  NOTE_CONSTANTS,
+  PAGINATION_CONSTANTS,
 };
