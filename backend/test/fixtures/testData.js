@@ -44,6 +44,33 @@ const invalidNotes = {
 const validObjectId = '507f1f77bcf86cd799439011';
 const invalidObjectId = 'not-a-valid-objectid';
 
+// ── Module 3: Auth fixtures ───────────────────────────────────────────────────
+
+const validRegistration = {
+  username: 'authuser',
+  email: 'authuser@example.com',
+  password: 'TestPass123!',
+  firstName: 'Auth',
+  lastName: 'User',
+};
+
+const validLogin = {
+  email: 'authuser@example.com',
+  password: 'TestPass123!',
+};
+
+const invalidRegistrations = {
+  missingEmail: { username: 'authuser', password: 'TestPass123!' },
+  invalidEmail: { username: 'authuser', email: 'not-an-email', password: 'TestPass123!' },
+  shortPassword: { username: 'authuser', email: 'authuser@example.com', password: '123' },
+  shortUsername: { username: 'au', email: 'authuser@example.com', password: 'TestPass123!' },
+  invalidUsername: { username: 'auth user!', email: 'authuser@example.com', password: 'TestPass123!' },
+};
+
+const validOTP = '123456';
+const invalidOTP = '000000';
+const expiredOTPDate = new Date(Date.now() - 11 * 60 * 1000); // 11 minutes ago
+
 // ── Misc fixtures retained from Module 1 ─────────────────────────────────────
 
 const mockEnvConfig = {
@@ -75,4 +102,10 @@ module.exports = {
   invalidObjectId,
   mockEnvConfig,
   mockErrors,
+  validRegistration,
+  validLogin,
+  invalidRegistrations,
+  validOTP,
+  invalidOTP,
+  expiredOTPDate,
 };

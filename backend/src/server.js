@@ -7,10 +7,12 @@ const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
 
+const cookieParser = require('cookie-parser');
 const corsMiddleware = require('./middleware/corsConfig');
 const requestLogger = require('./middleware/requestLogger');
 const errorHandler = require('./middleware/errorHandler');
 const healthRouter = require('./routes/healthCheck');
+const authRouter = require('./routes/authRoutes');
 const { sendError } = require('./utils/responseHandler');
 const { HTTP_STATUS } = require('./config/constants');
 const logger = require('./config/logger');
@@ -26,6 +28,9 @@ app.use(corsMiddleware);
 // ── Body parsing ────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// ── Cookie parsing ───────────────────────────────────────────────────────────
+app.use(cookieParser());
 
 // ── Compression ─────────────────────────────────────────────────────────────
 app.use(compression());
@@ -46,9 +51,9 @@ app.use(requestLogger);
 
 // ── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api/health', healthRouter);
+app.use('/api/auth', authRouter);
 
 // Placeholder for future module routes
-// app.use('/api/auth',  authRouter);
 // app.use('/api/notes', notesRouter);
 
 // ── 404 handler ─────────────────────────────────────────────────────────────

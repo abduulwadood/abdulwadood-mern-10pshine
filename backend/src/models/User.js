@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const validator = require('validator');
 const logger = require('../config/logger');
-const { USER_CONSTANTS } = require('../config/constants');
+const { USER_CONSTANTS, OTP_CONSTANTS } = require('../config/constants');
 
 const { Schema } = mongoose;
 
@@ -118,6 +118,31 @@ const userSchema = new Schema(
       type: String,
       default: null,
     },
+
+    otp: {
+      code: {
+        type: String,
+        select: false,
+        default: null,
+      },
+      expiresAt: {
+        type: Date,
+        default: null,
+      },
+      attempts: {
+        type: Number,
+        default: 0,
+      },
+      lastSentAt: {
+        type: Date,
+        default: null,
+      },
+      purpose: {
+        type: String,
+        enum: [...Object.values(OTP_CONSTANTS.PURPOSES), null],
+        default: null,
+      },
+    },
   },
   {
     timestamps: true,
@@ -129,6 +154,7 @@ const userSchema = new Schema(
         delete ret.refreshToken;
         delete ret.loginAttempts;
         delete ret.lockUntil;
+        if (ret.otp) delete ret.otp.code;
         return ret;
       },
     },
@@ -234,6 +260,78 @@ userSchema.methods.resetLoginAttempts = async function resetLoginAttempts() {
   await this.updateOne({ $set: { loginAttempts: 0 }, $unset: { lockUntil: 1 } });
   this.loginAttempts = 0;
   this.lockUntil = null;
+  return this;
+};
+
+/**
+ * Store a hashed OTP code against this user document.
+ * @param {string} hashedCode  SHA-256 hex hash of the plaintext OTP
+ * @param {string} purpose     One of OTP_CONSTANTS.PURPOSES values
+ * @returns {Promise<this>}
+ */
+userSchema.methods.generateOTP = async function generateOTP(hashedCode, purpose) {
+  const expiresAt = new Date(Date.now() + OTP_CONSTANTS.EXPIRY_MINUTES * 60 * 1000);
+  await this.updateOne({
+    $set: {
+      'otp.code': hashedCode,
+      'otp.expiresAt': expiresAt,
+      'otp.attempts': 0,
+      'otp.lastSentAt': new Date(),
+      'otp.purpose': purpose,
+    },
+  });
+  this.otp = { code: hashedCode, expiresAt, attempts: 0, lastSentAt: new Date(), purpose };
+  return this;
+};
+
+/**
+ * Verify a plaintext OTP. Increments attempts on failure and clears on success.
+ * Caller must have loaded the document with `+otp.code` selected.
+ * @param {string} plainOTP  The raw 6-digit code from the user
+ * @param {{ compareOTP: Function, isOTPExpired: Function }} otpUtils
+ * @returns {Promise<{ valid: boolean, reason?: string }>}
+ */
+userSchema.methods.verifyOTP = async function verifyOTP(plainOTP, otpUtils) {
+  if (!this.otp || !this.otp.code) return { valid: false, reason: 'no_otp' };
+  if (this.otp.attempts >= OTP_CONSTANTS.MAX_ATTEMPTS) return { valid: false, reason: 'max_attempts' };
+  if (otpUtils.isOTPExpired(this.otp.expiresAt)) return { valid: false, reason: 'expired' };
+
+  const match = otpUtils.compareOTP(plainOTP, this.otp.code);
+  if (!match) {
+    await this.updateOne({ $inc: { 'otp.attempts': 1 } });
+    this.otp.attempts += 1;
+    return { valid: false, reason: 'invalid' };
+  }
+
+  await this.clearOTP();
+  return { valid: true };
+};
+
+/**
+ * Returns true only when the resend cooldown has elapsed.
+ * @returns {boolean}
+ */
+userSchema.methods.canResendOTP = function canResendOTP() {
+  if (!this.otp || !this.otp.lastSentAt) return true;
+  const elapsed = (Date.now() - this.otp.lastSentAt.getTime()) / 1000;
+  return elapsed >= OTP_CONSTANTS.RESEND_COOLDOWN_SECONDS;
+};
+
+/**
+ * Wipe the OTP subdocument (called after successful verification).
+ * @returns {Promise<this>}
+ */
+userSchema.methods.clearOTP = async function clearOTP() {
+  await this.updateOne({
+    $set: {
+      'otp.code': null,
+      'otp.expiresAt': null,
+      'otp.attempts': 0,
+      'otp.lastSentAt': null,
+      'otp.purpose': null,
+    },
+  });
+  this.otp = { code: null, expiresAt: null, attempts: 0, lastSentAt: null, purpose: null };
   return this;
 };
 
