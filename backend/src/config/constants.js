@@ -208,6 +208,107 @@ const ERROR_MESSAGES = {
   USER_NOT_FOUND: 'User not found.',
 };
 
+// ── Module 4: Notes CRUD constants ──────────────────────────────────────────
+const NOTES_CONSTANTS = {
+  DEFAULT_PAGE: 1,
+  DEFAULT_PAGE_SIZE: parseInt(process.env.NOTES_DEFAULT_PAGE_SIZE, 10) || 10,
+  MAX_PAGE_SIZE: parseInt(process.env.NOTES_MAX_PAGE_SIZE, 10) || 100,
+  DEFAULT_SORT: process.env.NOTES_DEFAULT_SORT || '-createdAt',
+  MAX_TITLE_LENGTH: parseInt(process.env.NOTES_MAX_TITLE_LENGTH, 10) || 200,
+  MIN_TITLE_LENGTH: 1,
+  MAX_CONTENT_LENGTH: parseInt(process.env.NOTES_MAX_CONTENT_LENGTH, 10) || 50000,
+  MAX_TAGS: parseInt(process.env.NOTES_MAX_TAGS, 10) || 10,
+  MAX_TAG_LENGTH: 30,
+  DEFAULT_COLOR: '#ffffff',
+  VALID_COLORS: [
+    '#ffffff', '#fef3c7', '#d1fae5', '#dbeafe',
+    '#fce7f3', '#ede9fe', '#fee2e2', '#f3f4f6',
+  ],
+};
+
+// ── Module 4: Voice notes constants ─────────────────────────────────────────
+const VOICE_CONSTANTS = {
+  SUPPORTED_LANGUAGES: {
+    ENGLISH: 'en-US',
+    URDU: 'ur-PK',
+    AUTO: 'auto',
+  },
+  SUPPORTED_LANGUAGE_NAMES: {
+    'en-US': 'English',
+    'ur-PK': 'Urdu',
+    'auto': 'Auto-detect',
+  },
+  INPUT_METHODS: {
+    TYPED: 'typed',
+    VOICE: 'voice',
+    MIXED: 'mixed',
+  },
+  DEFAULT_LANGUAGE: process.env.VOICE_DEFAULT_LANGUAGE || 'en-US',
+};
+
+// ── Module 4: Note sort options ──────────────────────────────────────────────
+const NOTE_SORT_OPTIONS = {
+  NEWEST: '-createdAt',
+  OLDEST: 'createdAt',
+  RECENTLY_UPDATED: '-updatedAt',
+  TITLE_ASC: 'title',
+  TITLE_DESC: '-title',
+  PINNED_FIRST: '-isPinned -createdAt',
+};
+
+// ── Module 4: Note filter options ────────────────────────────────────────────
+const NOTE_FILTER_OPTIONS = {
+  ALL: 'all',
+  PINNED: 'pinned',
+  ARCHIVED: 'archived',
+  VOICE: 'voice',
+  TYPED: 'typed',
+  MIXED: 'mixed',
+};
+
+// ── Module 4: Notes success messages ────────────────────────────────────────
+const NOTES_SUCCESS_MESSAGES = {
+  NOTE_CREATED: 'Note created successfully.',
+  NOTE_UPDATED: 'Note updated successfully.',
+  NOTE_DELETED: 'Note deleted successfully.',
+  NOTE_RESTORED: 'Note restored successfully.',
+  NOTE_ARCHIVED: 'Note archived successfully.',
+  NOTE_UNARCHIVED: 'Note unarchived successfully.',
+  NOTE_PINNED: 'Note pinned successfully.',
+  NOTE_UNPINNED: 'Note unpinned successfully.',
+  NOTES_FETCHED: 'Notes retrieved successfully.',
+  NOTE_FETCHED: 'Note retrieved successfully.',
+  TAGS_ADDED: 'Tags added successfully.',
+  TAGS_REMOVED: 'Tags removed successfully.',
+  TAGS_FETCHED: 'Tags retrieved successfully.',
+  STATS_FETCHED: 'Note statistics retrieved.',
+  VOICE_NOTE_CREATED: 'Voice note created successfully.',
+  VOICE_NOTE_UPDATED: 'Note updated with voice content successfully.',
+  VOICE_NOTES_FETCHED: 'Voice notes retrieved successfully.',
+  PERMANENT_DELETED: 'Note permanently deleted.',
+};
+
+// ── Module 4: Notes error messages ──────────────────────────────────────────
+const NOTES_ERROR_MESSAGES = {
+  NOTE_NOT_FOUND: 'Note not found.',
+  NOTE_ACCESS_DENIED: 'You do not have permission to access this note.',
+  INVALID_NOTE_ID: 'Invalid note ID format.',
+  TITLE_REQUIRED: 'Note title is required.',
+  CONTENT_REQUIRED: 'Note content is required.',
+  TITLE_TOO_LONG: 'Title cannot exceed 200 characters.',
+  CONTENT_TOO_LONG: 'Content cannot exceed 50000 characters.',
+  TOO_MANY_TAGS: 'Cannot add more than 10 tags to a note.',
+  TAG_TOO_LONG: 'Each tag cannot exceed 30 characters.',
+  INVALID_COLOR: 'Invalid note color. Please use a valid hex color.',
+  INVALID_LANGUAGE: 'Invalid voice language. Supported: en-US, ur-PK.',
+  INVALID_INPUT_METHOD: 'Invalid input method. Use: typed, voice, or mixed.',
+  NOTE_ALREADY_DELETED: 'This note has already been deleted.',
+  VOICE_CONTENT_REQUIRED: 'Voice transcribed content is required.',
+  LANGUAGE_NOT_SUPPORTED: 'The specified language is not supported for voice notes.',
+  MUST_BE_DELETED_FIRST: 'Note must be soft-deleted before permanent deletion.',
+  NO_UPDATE_FIELDS: 'At least one field is required for update.',
+};
+
 module.exports = {
   HTTP_STATUS,
   MESSAGES,
@@ -228,4 +329,10 @@ module.exports = {
   RATE_LIMIT_CONSTANTS,
   SUCCESS_MESSAGES,
   ERROR_MESSAGES,
+  NOTES_CONSTANTS,
+  VOICE_CONSTANTS,
+  NOTE_SORT_OPTIONS,
+  NOTE_FILTER_OPTIONS,
+  NOTES_SUCCESS_MESSAGES,
+  NOTES_ERROR_MESSAGES,
 };

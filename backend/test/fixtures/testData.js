@@ -93,6 +93,60 @@ const mockErrors = {
   },
 };
 
+// ── Module 4: Note fixtures ───────────────────────────────────────────────────
+
+const validTypedNote = {
+  title: 'Test Note',
+  content: 'This is a test note content for testing purposes.',
+  tags: ['test', 'sample'],
+  color: '#ffffff',
+  inputMethod: 'typed',
+};
+
+const validVoiceNote = {
+  title: 'Voice Note Test',
+  content: 'This content was spoken aloud and transcribed.',
+  voiceLanguage: 'en-US',
+  voiceMetadata: {
+    language: 'en-US',
+    languageName: 'English',
+    confidenceScore: 0.95,
+  },
+  inputMethod: 'voice',
+};
+
+const validUrduVoiceNote = {
+  title: 'اردو نوٹ',
+  content: 'یہ ایک اردو میں لکھا گیا نوٹ ہے۔',
+  voiceLanguage: 'ur-PK',
+  voiceMetadata: {
+    language: 'ur-PK',
+    languageName: 'Urdu',
+    confidenceScore: 0.85,
+  },
+  inputMethod: 'voice',
+};
+
+const invalidNoteFixtures = {
+  noTitle: { content: 'Content without title' },
+  noContent: { title: 'Title without content' },
+  tooManyTags: { title: 'T', content: 'C', tags: Array(11).fill('tag') },
+  invalidColor: { title: 'T', content: 'C', color: 'not-hex' },
+  invalidInputMethod: { title: 'T', content: 'C', inputMethod: 'invalid' },
+  invalidLanguage: { title: 'T', content: 'C', voiceLanguage: 'fr-FR' },
+};
+
+const validVoiceUpdate = {
+  content: 'Updated content via voice transcription.',
+  appendToExisting: false,
+  voiceLanguage: 'en-US',
+  voiceMetadata: {
+    language: 'en-US',
+    languageName: 'English',
+    confidenceScore: 0.92,
+  },
+};
+
 module.exports = {
   validUser,
   invalidUsers,
@@ -108,4 +162,10 @@ module.exports = {
   validOTP,
   invalidOTP,
   expiredOTPDate,
+  // Module 4
+  validTypedNote,
+  validVoiceNote,
+  validUrduVoiceNote,
+  invalidNoteFixtures,
+  validVoiceUpdate,
 };
