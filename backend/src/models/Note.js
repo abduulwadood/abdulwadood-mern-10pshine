@@ -3,11 +3,34 @@
 const mongoose = require('mongoose');
 const mongoosePaginate = require('mongoose-paginate-v2');
 const logger = require('../config/logger');
-const { NOTE_CONSTANTS, PAGINATION_CONSTANTS } = require('../config/constants');
+const { NOTE_CONSTANTS, PAGINATION_CONSTANTS, VOICE_CONSTANTS } = require('../config/constants');
 
 const { Schema } = mongoose;
 
 const HEX_COLOR_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
+// ── Subdocument schemas ───────────────────────────────────────────────────────
+
+const voiceMetadataSchema = new Schema(
+  {
+    language: { type: String, default: null },
+    languageName: { type: String, default: null },
+    voiceEditCount: { type: Number, default: 0 },
+    lastVoiceEditAt: { type: Date, default: null },
+    confidenceScore: { type: Number, min: 0, max: 1, default: null },
+  },
+  { _id: false }
+);
+
+const editHistoryItemSchema = new Schema(
+  {
+    editedAt: { type: Date, default: Date.now },
+    inputMethod: { type: String, enum: ['typed', 'voice', 'mixed'] },
+    previousTitle: { type: String },
+    previousContent: { type: String },
+  },
+  { _id: false }
+);
 
 /**
  * Note schema.
@@ -103,6 +126,46 @@ const noteSchema = new Schema(
       type: Date,
       default: null,
     },
+
+    // ── Module 4: Voice note fields ─────────────────────────────────────────
+
+    inputMethod: {
+      type: String,
+      enum: ['typed', 'voice', 'mixed'],
+      default: 'typed',
+      index: true,
+    },
+
+    voiceLanguage: {
+      type: String,
+      enum: ['en-US', 'ur-PK', 'auto', null],
+      default: null,
+    },
+
+    voiceMetadata: {
+      type: voiceMetadataSchema,
+      default: () => ({}),
+    },
+
+    editHistory: {
+      type: [editHistoryItemSchema],
+      default: [],
+    },
+
+    characterCount: {
+      type: Number,
+      default: 0,
+    },
+
+    wordCount: {
+      type: Number,
+      default: 0,
+    },
+
+    readingTimeSeconds: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,
@@ -118,6 +181,9 @@ noteSchema.index({ userId: 1, isDeleted: 1 });
 noteSchema.index({ tags: 1 });
 // A single compound text index (MongoDB allows only one text index per collection).
 noteSchema.index({ title: 'text', content: 'text' });
+// Module 4: voice query indexes
+noteSchema.index({ userId: 1, inputMethod: 1 });
+noteSchema.index({ userId: 1, 'voiceMetadata.language': 1 });
 
 // ── Hooks ────────────────────────────────────────────────────────────────────
 
@@ -127,6 +193,17 @@ noteSchema.index({ title: 'text', content: 'text' });
 noteSchema.pre('save', function touchLastEdited(next) {
   if (this.isModified('title') || this.isModified('content')) {
     this.lastEditedAt = new Date();
+  }
+  next();
+});
+
+// Auto-calculate word count, character count, reading time on content change.
+noteSchema.pre('save', function calculateStats(next) {
+  if (this.isModified('content')) {
+    const words = this.content ? this.content.trim().split(/\s+/).filter((w) => w.length > 0) : [];
+    this.wordCount = words.length;
+    this.characterCount = this.content ? this.content.length : 0;
+    this.readingTimeSeconds = Math.ceil((this.wordCount / 200) * 60);
   }
   next();
 });
@@ -211,6 +288,79 @@ noteSchema.statics.getArchivedNotes = function getArchivedNotes(userId) {
 
 noteSchema.statics.getPinnedNotes = function getPinnedNotes(userId) {
   return this.find({ userId, isPinned: true });
+};
+
+// ── Module 4: Voice static methods ───────────────────────────────────────────
+
+noteSchema.statics.findVoiceNotes = function findVoiceNotes(userId) {
+  return this.find({ userId, inputMethod: { $in: ['voice', 'mixed'] } });
+};
+
+noteSchema.statics.findByLanguage = function findByLanguage(userId, language) {
+  return this.find({ userId, 'voiceMetadata.language': language });
+};
+
+noteSchema.statics.getUserNoteStats = async function getUserNoteStats(userId) {
+  const userObjId = new mongoose.Types.ObjectId(String(userId));
+
+  const [basicResult] = await this.aggregate([
+    { $match: { userId: userObjId, isDeleted: false } },
+    {
+      $group: {
+        _id: null,
+        total: { $sum: 1 },
+        pinned: { $sum: { $cond: ['$isPinned', 1, 0] } },
+        archived: { $sum: { $cond: ['$isArchived', 1, 0] } },
+        typedCount: { $sum: { $cond: [{ $eq: ['$inputMethod', 'typed'] }, 1, 0] } },
+        voiceCount: { $sum: { $cond: [{ $eq: ['$inputMethod', 'voice'] }, 1, 0] } },
+        mixedCount: { $sum: { $cond: [{ $eq: ['$inputMethod', 'mixed'] }, 1, 0] } },
+        totalWords: { $sum: { $ifNull: ['$wordCount', 0] } },
+        totalCharacters: { $sum: { $ifNull: ['$characterCount', 0] } },
+      },
+    },
+  ]);
+
+  const [deletedResult] = await this.aggregate([
+    { $match: { userId: userObjId, isDeleted: true } },
+    { $group: { _id: null, deleted: { $sum: 1 } } },
+  ]);
+
+  const langResults = await this.aggregate([
+    {
+      $match: {
+        userId: userObjId,
+        isDeleted: false,
+        'voiceMetadata.language': { $ne: null },
+      },
+    },
+    { $group: { _id: '$voiceMetadata.language', count: { $sum: 1 } } },
+  ]);
+
+  const byLanguage = {};
+  langResults.forEach((r) => { if (r._id) byLanguage[r._id] = r.count; });
+
+  const basic = basicResult || {
+    total: 0, pinned: 0, archived: 0,
+    typedCount: 0, voiceCount: 0, mixedCount: 0,
+    totalWords: 0, totalCharacters: 0,
+  };
+
+  return {
+    total: basic.total,
+    active: basic.total,
+    deleted: deletedResult ? deletedResult.deleted : 0,
+    pinned: basic.pinned,
+    archived: basic.archived,
+    byInputMethod: {
+      typed: basic.typedCount,
+      voice: basic.voiceCount,
+      mixed: basic.mixedCount,
+    },
+    byLanguage,
+    totalWords: basic.totalWords,
+    totalCharacters: basic.totalCharacters,
+    averageWordCount: basic.total > 0 ? Math.round(basic.totalWords / basic.total) : 0,
+  };
 };
 
 // ── Plugins ──────────────────────────────────────────────────────────────────
