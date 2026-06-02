@@ -62,13 +62,26 @@ async function register(req, res, next) {
     const hashed = hashOTP(otp);
     await user.generateOTP(hashed, OTP_CONSTANTS.PURPOSES.EMAIL_VERIFICATION);
 
+    let emailSent = false;
     try {
       await emailService.sendOTPVerificationEmail(user, otp);
+      emailSent = true;
     } catch (emailErr) {
       logger.warn({ error: emailErr.message, userId: user._id }, 'OTP email failed at registration');
     }
 
-    return sendSuccess(res, { userId: user._id }, SUCCESS_MESSAGES.REGISTERED, HTTP_STATUS.CREATED);
+    if (!emailSent && process.env.NODE_ENV !== 'production') {
+      logger.info({ otp, email: user.email }, '[DEV] OTP email failed — plaintext OTP logged for testing');
+      console.log(`\n[DEV] OTP for ${user.email}: ${otp}\n`);
+    }
+
+    const otpExpiresAt = user.otp?.expiresAt;
+    return sendSuccess(
+      res,
+      { userId: user._id, otpExpiresAt },
+      SUCCESS_MESSAGES.REGISTERED,
+      HTTP_STATUS.CREATED
+    );
   } catch (err) {
     return next(err);
   }
@@ -138,10 +151,16 @@ async function resendOTP(req, res, next) {
       await emailService.sendOTPVerificationEmail(user, otp);
     } catch (emailErr) {
       logger.warn({ error: emailErr.message, userId: user._id }, 'OTP resend email failed');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`\n[DEV] OTP for ${user.email}: ${otp}\n`);
+        const otpExpiresAt = user.otp?.expiresAt;
+        return sendSuccess(res, { otpExpiresAt }, SUCCESS_MESSAGES.OTP_RESENT);
+      }
       return sendError(res, ERROR_MESSAGES.EMAIL_SEND_FAILED, HTTP_STATUS.INTERNAL_SERVER_ERROR);
     }
 
-    return sendSuccess(res, null, SUCCESS_MESSAGES.OTP_RESENT);
+    const otpExpiresAt = user.otp?.expiresAt;
+    return sendSuccess(res, { otpExpiresAt }, SUCCESS_MESSAGES.OTP_RESENT);
   } catch (err) {
     return next(err);
   }
@@ -237,4 +256,53 @@ async function getMe(req, res, next) {
   }
 }
 
-module.exports = { register, verifyOTP, resendOTP, login, refreshToken, logout, getMe };
+/**
+ * POST /api/auth/change-password
+ */
+async function changePassword(req, res, next) {
+  try {
+    const { oldPassword, newPassword } = req.body;
+
+    const user = await User.findById(req.user._id).select('+password');
+    if (!user) return sendError(res, ERROR_MESSAGES.USER_NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+
+    const isMatch = await user.comparePassword(oldPassword);
+    if (!isMatch) return sendError(res, 'Current password is incorrect.', HTTP_STATUS.BAD_REQUEST);
+
+    const isSame = await bcrypt.compare(newPassword, user.password);
+    if (isSame) return sendError(res, 'New password must be different from your current password.', HTTP_STATUS.BAD_REQUEST);
+
+    user.password = newPassword;
+    user.refreshToken = null;
+    await user.save();
+
+    return sendSuccess(res, { requiresReLogin: true }, 'Password changed successfully. Please sign in again.');
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/**
+ * PATCH /api/auth/me
+ */
+async function updateMe(req, res, next) {
+  try {
+    const ALLOWED = ['firstName', 'lastName'];
+    const updates = {};
+    for (const key of ALLOWED) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return sendError(res, 'No valid fields to update.', HTTP_STATUS.BAD_REQUEST);
+    }
+
+    await req.user.updateOne({ $set: updates });
+    const updated = await User.findById(req.user._id);
+    return sendSuccess(res, { user: updated.toJSON() }, 'Profile updated successfully.');
+  } catch (err) {
+    return next(err);
+  }
+}
+
+module.exports = { register, verifyOTP, resendOTP, login, refreshToken, logout, getMe, updateMe, changePassword };

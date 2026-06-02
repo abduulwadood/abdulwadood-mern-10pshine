@@ -1,11 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { cn } from '../../lib/utils'
 
-export function OTPInput({ onChange, error, disabled }) {
+export function OTPInput({ onChange, error, disabled, dark = false }) {
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
   const inputRefs = useRef([])
 
-  // Focus first box on mount
   useEffect(() => {
     inputRefs.current[0]?.focus()
   }, [])
@@ -81,13 +80,24 @@ export function OTPInput({ onChange, error, disabled }) {
             'text-center text-xl sm:text-2xl font-bold',
             'border-2 rounded-lg',
             'focus:outline-none transition-all duration-200',
-            'focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200',
             'disabled:opacity-50 disabled:cursor-not-allowed',
-            error
-              ? 'border-red-500 bg-red-50'
-              : digit
-                ? 'border-indigo-500 bg-indigo-50'
-                : 'border-gray-300 bg-white'
+            dark
+              ? [
+                  'bg-white/10 text-white',
+                  error
+                    ? 'border-red-400 focus:border-red-400 focus:ring-2 focus:ring-red-400/30'
+                    : digit
+                      ? 'border-indigo-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/30'
+                      : 'border-white/30 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/30',
+                ]
+              : [
+                  'bg-white',
+                  error
+                    ? 'border-red-500 bg-red-50 focus:border-red-500 focus:ring-2 focus:ring-red-200'
+                    : digit
+                      ? 'border-indigo-500 bg-indigo-50 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200'
+                      : 'border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200',
+                ]
           )}
         />
       ))}

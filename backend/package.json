@@ -8,7 +8,7 @@
     "dev": "nodemon src/index.js",
     "test": "mocha 'test/**/*.test.js' --timeout 60000 --exit",
     "test:watch": "mocha 'test/**/*.test.js' --watch --timeout 60000",
-    "test:coverage": "nyc mocha 'test/**/*.test.js' --timeout 60000 --exit",
+    "test:coverage": "nyc --reporter=lcov --reporter=text --reporter=html mocha 'test/**/*.test.js' --timeout 60000 --exit",
     "lint": "eslint src/"
   },
   "keywords": [
@@ -42,6 +42,19 @@
     "pino-pretty": "^10.3.1",
     "uuid": "^9.0.1",
     "validator": "^13.11.0"
+  },
+  "nyc": {
+    "include": ["src/**/*.js"],
+    "exclude": [
+      "src/config/**",
+      "src/templates/**",
+      "test/**"
+    ],
+    "branches": 60,
+    "lines": 70,
+    "functions": 70,
+    "statements": 70,
+    "check-coverage": false
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

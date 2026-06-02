@@ -77,4 +77,30 @@ if (NODE_ENV === 'development') {
   );
 }
 
+/**
+ * Create a child logger with arbitrary context fields.
+ * @param {Object} context - e.g. { action: 'login', userId: '...' }
+ * @returns {import('pino').Logger}
+ */
+function createChildLogger(context = {}) {
+  return logger.child(context);
+}
+
+/**
+ * Create a request-scoped child logger with requestId + userId pre-bound.
+ * @param {import('express').Request} req
+ * @returns {import('pino').Logger}
+ */
+function createRequestLogger(req) {
+  return logger.child({
+    requestId: req.requestId,
+    method: req.method,
+    url: req.originalUrl,
+    ip: req.ip,
+    userId: req.user?._id ?? req.user?.id ?? undefined,
+  });
+}
+
 module.exports = logger;
+module.exports.createChildLogger = createChildLogger;
+module.exports.createRequestLogger = createRequestLogger;

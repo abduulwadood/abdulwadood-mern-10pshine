@@ -28,7 +28,7 @@ function formatMinutes(seconds) {
 
 export function StatsSidebar() {
   const { data, isLoading } = useGetNoteStatsQuery()
-  const stats = data?.data || {}
+  const stats = data?.data?.stats || {}
 
   if (isLoading) {
     return (

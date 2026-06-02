@@ -158,6 +158,53 @@ describe('errorHandler middleware', () => {
     errorHandler(err, buildReq(), res, sinon.stub());
     expect(res.status.calledWith(HTTP_STATUS.BAD_REQUEST)).to.be.true;
   });
+
+  it('handles Mongoose duplicate key error (code 11000) with 409 status', () => {
+    const err = new Error('Duplicate key');
+    err.code = 11000;
+    err.keyPattern = { email: 1 };
+    err.keyValue = { email: 'dup@example.com' };
+    const res = buildRes();
+    errorHandler(err, buildReq(), res, sinon.stub());
+    expect(res.status.calledWith(HTTP_STATUS.CONFLICT)).to.be.true;
+    const body = res.json.firstCall.args[0];
+    expect(body.message).to.include('Email');
+  });
+
+  it('handles Mongoose CastError with 400 status', () => {
+    const err = new Error('Cast error');
+    err.name = 'CastError';
+    err.path = '_id';
+    err.kind = 'ObjectId';
+    const res = buildRes();
+    errorHandler(err, buildReq(), res, sinon.stub());
+    expect(res.status.calledWith(HTTP_STATUS.BAD_REQUEST)).to.be.true;
+  });
+
+  it('handles Mongoose ValidationError (schema-level) with 400 status', () => {
+    const err = new Error('Validation failed');
+    err.name = 'ValidationError';
+    err.errors = { title: { message: 'Title is required' } };
+    const res = buildRes();
+    errorHandler(err, buildReq(), res, sinon.stub());
+    expect(res.status.calledWith(HTTP_STATUS.BAD_REQUEST)).to.be.true;
+  });
+
+  it('handles JsonWebTokenError with 401 status', () => {
+    const err = new Error('invalid signature');
+    err.name = 'JsonWebTokenError';
+    const res = buildRes();
+    errorHandler(err, buildReq(), res, sinon.stub());
+    expect(res.status.calledWith(HTTP_STATUS.UNAUTHORIZED)).to.be.true;
+  });
+
+  it('handles TokenExpiredError with 401 status', () => {
+    const err = new Error('jwt expired');
+    err.name = 'TokenExpiredError';
+    const res = buildRes();
+    errorHandler(err, buildReq(), res, sinon.stub());
+    expect(res.status.calledWith(HTTP_STATUS.UNAUTHORIZED)).to.be.true;
+  });
 });
 
 // ── responseHandler helpers ───────────────────────────────────────────────────

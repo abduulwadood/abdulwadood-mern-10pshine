@@ -116,8 +116,9 @@ function paginateQuery(page, limit) {
 
 function generateNotePreview(content, maxLength = 150) {
   if (!content) return '';
-  if (content.length <= maxLength) return content;
-  const trimmed = content.slice(0, maxLength);
+  const plainText = content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (plainText.length <= maxLength) return plainText;
+  const trimmed = plainText.slice(0, maxLength);
   const lastSpace = trimmed.lastIndexOf(' ');
   if (lastSpace > 0) return `${trimmed.slice(0, lastSpace)}...`;
   return `${trimmed}...`;

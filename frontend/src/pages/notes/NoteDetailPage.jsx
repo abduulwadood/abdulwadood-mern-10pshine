@@ -232,14 +232,13 @@ export default function NoteDetailPage() {
             {note?.content ? (
               <div
                 className={cn(
-                  'prose prose-sm max-w-none text-gray-700 leading-relaxed whitespace-pre-wrap',
+                  'prose prose-sm max-w-none text-gray-700',
                   isUrdu && 'text-right font-[system-ui]'
                 )}
                 dir={isUrdu ? 'rtl' : 'ltr'}
                 lang={note?.voiceLanguage || 'en'}
-              >
-                {note.content}
-              </div>
+                dangerouslySetInnerHTML={{ __html: note.content }}
+              />
             ) : (
               <p className="text-gray-400 text-sm italic">No content</p>
             )}
