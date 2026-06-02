@@ -244,6 +244,15 @@ userSchema.methods.incrementLoginAttempts = async function incrementLoginAttempt
 
   if (willReachLimit && !this.isLocked) {
     updates.$set = { lockUntil: new Date(Date.now() + USER_CONSTANTS.LOCK_TIME) };
+    logger.warn(
+      { userId: this._id, email: this.email, attempts: this.loginAttempts + 1 },
+      'Account locked after too many failed login attempts'
+    );
+  } else {
+    logger.warn(
+      { userId: this._id, attempts: this.loginAttempts + 1 },
+      'Failed login attempt recorded'
+    );
   }
 
   await this.updateOne(updates);

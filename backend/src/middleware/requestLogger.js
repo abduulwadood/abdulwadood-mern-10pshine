@@ -2,6 +2,7 @@
 
 const { v4: uuidv4 } = require('uuid');
 const logger = require('../config/logger');
+const { createRequestLogger } = require('../config/logger');
 const { SENSITIVE_FIELDS } = require('../config/constants');
 
 /**
@@ -32,6 +33,10 @@ function requestLogger(req, res, next) {
   const requestId = req.headers['x-request-id'] || uuidv4();
   req.requestId = requestId;
   res.setHeader('X-Request-ID', requestId);
+
+  // Attach a request-scoped child logger so controllers can use req.logger
+  // for automatic requestId correlation without extra boilerplate.
+  req.logger = createRequestLogger(req);
 
   const startTime = Date.now();
 

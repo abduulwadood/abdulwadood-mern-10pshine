@@ -74,6 +74,39 @@ class ServerError extends AppError {
   }
 }
 
+class RateLimitError extends AppError {
+  constructor(message = 'Too many requests. Please try again later.', retryAfter = 60) {
+    super(message, HTTP_STATUS.TOO_MANY_REQUESTS, ERROR_TYPES.RATE_LIMIT);
+    this.retryAfter = retryAfter;
+  }
+
+  toJSON() {
+    return { ...super.toJSON(), retryAfter: this.retryAfter };
+  }
+}
+
+class ExternalServiceError extends AppError {
+  constructor(service = 'External Service', message = null) {
+    super(
+      message || `${service} is temporarily unavailable.`,
+      HTTP_STATUS.SERVICE_UNAVAILABLE,
+      ERROR_TYPES.SERVER
+    );
+    this.service = service;
+  }
+}
+
+class InvalidRequestError extends AppError {
+  constructor(message = 'Invalid request', details = null) {
+    super(message, HTTP_STATUS.BAD_REQUEST, ERROR_TYPES.VALIDATION);
+    this.details = details;
+  }
+
+  toJSON() {
+    return { ...super.toJSON(), details: this.details };
+  }
+}
+
 module.exports = {
   AppError,
   ValidationError,
@@ -83,4 +116,7 @@ module.exports = {
   ConflictError,
   DatabaseError,
   ServerError,
+  RateLimitError,
+  ExternalServiceError,
+  InvalidRequestError,
 };

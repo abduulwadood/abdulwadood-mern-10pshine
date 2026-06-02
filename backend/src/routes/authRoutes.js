@@ -10,6 +10,8 @@ const {
   refreshToken,
   logout,
   getMe,
+  updateMe,
+  changePassword,
 } = require('../controllers/authController');
 const {
   authenticateToken,
@@ -78,5 +80,17 @@ router.post('/login', rateLimitAuth, loginValidation, validate, login);
 router.post('/refresh-token', refreshToken);
 router.post('/logout', authenticateToken, logout);
 router.get('/me', authenticateToken, requireVerifiedEmail, getMe);
+router.patch('/me', authenticateToken, requireVerifiedEmail, updateMe);
+
+const changePasswordValidation = [
+  body('oldPassword').notEmpty().withMessage('Current password is required'),
+  body('newPassword')
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+    .matches(/[A-Z]/).withMessage('Must contain an uppercase letter')
+    .matches(/[a-z]/).withMessage('Must contain a lowercase letter')
+    .matches(/[0-9]/).withMessage('Must contain a number')
+    .matches(/[^A-Za-z0-9]/).withMessage('Must contain a special character'),
+];
+router.post('/change-password', authenticateToken, changePasswordValidation, validate, changePassword);
 
 module.exports = router;

@@ -11,11 +11,10 @@ const cookieParser = require('cookie-parser');
 const corsMiddleware = require('./middleware/corsConfig');
 const requestLogger = require('./middleware/requestLogger');
 const errorHandler = require('./middleware/errorHandler');
+const { notFoundHandler } = require('./middleware/errorHandler');
 const healthRouter = require('./routes/healthCheck');
 const authRouter = require('./routes/authRoutes');
 const noteRouter = require('./routes/noteRoutes');
-const { sendError } = require('./utils/responseHandler');
-const { HTTP_STATUS } = require('./config/constants');
 const logger = require('./config/logger');
 
 const app = express();
@@ -56,9 +55,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/notes', noteRouter);
 
 // ── 404 handler ─────────────────────────────────────────────────────────────
-app.use((req, res) => {
-  sendError(res, `Cannot ${req.method} ${req.originalUrl}`, HTTP_STATUS.NOT_FOUND);
-});
+app.use(notFoundHandler);
 
 // ── Global error handler (must be last) ─────────────────────────────────────
 app.use(errorHandler);

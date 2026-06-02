@@ -343,6 +343,7 @@ async function getUserTags(userId) {
 }
 
 async function getNoteStats(userId) {
+  logger.debug({ userId }, 'Fetching note statistics');
   const stats = await Note.getUserNoteStats(userId);
 
   const now = new Date();
@@ -371,7 +372,7 @@ async function getNoteStats(userId) {
     ).sort({ createdAt: -1 }).lean(),
   ]);
 
-  return {
+  const result = {
     ...stats,
     mostUsedTags: tagStats.slice(0, 5).map((t) => t.tag),
     notesThisWeek: thisWeek,
@@ -379,6 +380,8 @@ async function getNoteStats(userId) {
     longestNote: longestNote || null,
     mostRecentNote: mostRecentNote || null,
   };
+  logger.debug({ userId, total: result.total }, 'Note statistics calculated');
+  return result;
 }
 
 async function getAllVoiceNotes(userId, queryParams = {}) {
