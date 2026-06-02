@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Loader2, AlertCircle, CheckCircle, ShieldAlert } from 'lucide-react'
+import {
+  Eye, EyeOff, ArrowRight, CheckCircle, AlertCircle,
+  Loader2, ShieldAlert, FileText,
+} from 'lucide-react'
 import { useLoginMutation } from '../../features/auth/authApi'
-import AuthLayout from '../../components/layout/AuthLayout'
-import { AuthFormWrapper } from '../../components/auth/AuthFormWrapper'
-import { PasswordInput } from '../../components/auth/PasswordInput'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
@@ -24,14 +24,15 @@ const loginSchema = z.object({
 export default function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
-
-  const successMessage = location.state?.message
   const from = location.state?.from?.pathname || ROUTES.DASHBOARD
+  const successMessage = location.state?.message
 
-  const [login, { isLoading }] = useLoginMutation()
+  const [showPassword, setShowPassword] = useState(false)
   const [isAccountLocked, setIsAccountLocked] = useState(false)
   const [lockUntilTime, setLockUntilTime] = useState('')
   const [failedAttempts, setFailedAttempts] = useState(0)
+
+  const [login, { isLoading }] = useLoginMutation()
 
   const {
     register,
@@ -40,15 +41,18 @@ export default function LoginPage() {
     setError,
   } = useForm({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '', rememberMe: false },
+    defaultValues: {
+      email: location.state?.email || '',
+      password: '',
+      rememberMe: true,
+    },
   })
 
   const onSubmit = async (data) => {
     setIsAccountLocked(false)
-
     try {
       await login({ email: data.email, password: data.password }).unwrap()
-      // setCredentials handled by onQueryStarted in authApi
+      setFailedAttempts(0)
       toast.success(TOAST_MESSAGES.LOGIN_SUCCESS)
       navigate(from, { replace: true })
     } catch (error) {
@@ -56,7 +60,6 @@ export default function LoginPage() {
 
       if (msg.toLowerCase().includes('lock')) {
         setIsAccountLocked(true)
-        // Extract time if present (e.g. "locked until 10:45 PM")
         const timeMatch = msg.match(/until (.+)/i)
         if (timeMatch) setLockUntilTime(timeMatch[1])
         setFailedAttempts(0)
@@ -68,6 +71,12 @@ export default function LoginPage() {
         setFailedAttempts(next)
         setError('password', { message: 'Invalid email or password' })
         setError('email', { message: ' ' })
+        if (next >= 3) {
+          const left = Math.max(0, 5 - next)
+          if (left > 0) {
+            toast.warning(`${left} attempt${left !== 1 ? 's' : ''} remaining before account lock`, { duration: 5000 })
+          }
+        }
       }
     }
   }
@@ -75,56 +84,79 @@ export default function LoginPage() {
   const attemptsLeft = Math.max(0, 5 - failedAttempts)
 
   return (
-    <AuthLayout>
-      <AuthFormWrapper title="Welcome back! 👋" subtitle="Sign in to your account">
-        <div className="space-y-4">
-          {/* Success banner from OTP redirect */}
-          {successMessage && (
-            <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
-              <CheckCircle className="w-4 h-4 flex-shrink-0" />
-              {successMessage}
-            </div>
-          )}
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-900 flex items-center justify-center p-4 overflow-hidden relative">
 
-          {/* Account locked warning */}
+      {/* Animated background blobs */}
+      <div aria-hidden className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-indigo-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob" />
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000" />
+        <div className="absolute -bottom-8 left-1/2 w-96 h-96 bg-indigo-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000" />
+      </div>
+
+      <div className="w-full max-w-md relative z-10">
+
+        {/* Logo + heading */}
+        <div className="text-center mb-8 animate-fade-in">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 mb-4 shadow-lg shadow-indigo-500/50 hover:scale-110 transition-transform duration-300">
+            <FileText className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-1">Welcome Back</h1>
+          <p className="text-indigo-200 text-sm">Sign in to continue to your notes</p>
+        </div>
+
+        {/* Success message from OTP verification */}
+        {successMessage && (
+          <div className="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/30 flex items-center gap-2 animate-slide-down">
+            <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+            <p className="text-sm text-green-300">{successMessage}</p>
+          </div>
+        )}
+
+        {/* Glass card */}
+        <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-white/20 animate-fade-in-up">
+
+          {/* Account locked banner */}
           {isAccountLocked && (
-            <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
+            <div className="mb-5 flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-300 text-sm">
               <ShieldAlert className="w-4 h-4 flex-shrink-0 mt-0.5" />
               <span>
                 Account temporarily locked due to multiple failed attempts.
-                {lockUntilTime && (
-                  <>
-                    <br />
-                    Try again after <span className="font-medium">{lockUntilTime}</span>
-                  </>
-                )}
+                {lockUntilTime && <><br />Try again after <span className="font-semibold">{lockUntilTime}</span></>}
               </span>
             </div>
           )}
 
-          {/* Failed attempts warning (3+) */}
+          {/* Attempts warning */}
           {!isAccountLocked && failedAttempts >= 3 && attemptsLeft > 0 && (
-            <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg text-orange-700 text-sm">
+            <div className="mb-5 flex items-center gap-2 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg text-orange-300 text-sm">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               {attemptsLeft} more attempt{attemptsLeft !== 1 ? 's' : ''} before account lock
             </div>
           )}
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+          <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
+
             {/* Email */}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-white/80 text-sm font-medium">
+                Email Address
+              </Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="john@example.com"
-                {...register('email')}
-                className={cn(errors.email && errors.email.message.trim() && 'border-red-500')}
-                aria-invalid={!!errors.email}
+                placeholder="name@example.com"
+                autoComplete="email"
                 disabled={isLoading}
+                {...register('email')}
+                className={cn(
+                  'w-full bg-white/5 border-white/20 text-white placeholder:text-white/30',
+                  'focus-visible:ring-indigo-500 focus-visible:bg-white/10',
+                  'transition-all duration-200',
+                  errors.email?.message?.trim() && 'border-red-400/70 focus-visible:ring-red-400'
+                )}
               />
-              {errors.email && errors.email.message.trim() && (
-                <p role="alert" className="text-sm text-red-500 flex items-center gap-1">
+              {errors.email?.message?.trim() && (
+                <p className="text-red-400 text-xs flex items-center gap-1">
                   <AlertCircle className="w-3 h-3 flex-shrink-0" />
                   {errors.email.message}
                 </p>
@@ -132,14 +164,41 @@ export default function LoginPage() {
             </div>
 
             {/* Password */}
-            <PasswordInput
-              id="password"
-              label="Password"
-              placeholder="Enter your password"
-              error={errors.password}
-              disabled={isLoading}
-              {...register('password')}
-            />
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-white/80 text-sm font-medium">
+                Password
+              </Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  disabled={isLoading}
+                  {...register('password')}
+                  className={cn(
+                    'w-full pr-11 bg-white/5 border-white/20 text-white placeholder:text-white/30',
+                    'focus-visible:ring-indigo-500 focus-visible:bg-white/10',
+                    'transition-all duration-200',
+                    errors.password && 'border-red-400/70 focus-visible:ring-red-400'
+                  )}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="text-red-400 text-xs flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                  {errors.password.message}
+                </p>
+              )}
+            </div>
 
             {/* Remember me */}
             <div className="flex items-center gap-2">
@@ -147,36 +206,65 @@ export default function LoginPage() {
                 id="rememberMe"
                 type="checkbox"
                 {...register('rememberMe')}
-                className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                className="w-4 h-4 rounded border-white/30 bg-white/5 accent-indigo-500 cursor-pointer"
               />
-              <Label htmlFor="rememberMe" className="font-normal cursor-pointer">
+              <label htmlFor="rememberMe" className="text-sm text-white/60 cursor-pointer select-none">
                 Remember me
-              </Label>
+              </label>
             </div>
 
-            <Button type="submit" disabled={isLoading || isAccountLocked} className="w-full">
+            {/* Submit */}
+            <Button
+              type="submit"
+              disabled={isLoading || isAccountLocked}
+              className={cn(
+                'w-full py-3 rounded-xl font-semibold gap-2',
+                'bg-gradient-to-r from-indigo-500 to-purple-600',
+                'hover:from-indigo-600 hover:to-purple-700',
+                'shadow-lg shadow-indigo-500/40 hover:shadow-indigo-500/60',
+                'transition-all duration-300 group',
+                'disabled:opacity-50 disabled:cursor-not-allowed'
+              )}
+            >
               {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
-                </>
+                <><Loader2 className="w-4 h-4 animate-spin" />Signing in...</>
               ) : (
-                'Sign In'
+                <>Sign In<ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" /></>
               )}
             </Button>
           </form>
 
-          <p className="text-center text-sm text-muted-foreground">
-            Don&apos;t have an account?{' '}
-            <Link
-              to={ROUTES.REGISTER}
-              className="text-primary font-medium hover:underline underline-offset-4"
-            >
-              Create one →
-            </Link>
-          </p>
+          {/* Divider */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/15" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="px-3 bg-transparent text-white/40 text-xs uppercase tracking-widest">
+                New to Notes?
+              </span>
+            </div>
+          </div>
+
+          {/* Register link */}
+          <button
+            type="button"
+            onClick={() => navigate(ROUTES.REGISTER)}
+            className={cn(
+              'w-full py-2.5 px-4 rounded-xl font-medium text-sm',
+              'bg-white/5 border border-white/15 text-white/80',
+              'hover:bg-white/10 hover:border-white/25 hover:text-white',
+              'transition-all duration-200'
+            )}
+          >
+            Create an account
+          </button>
         </div>
-      </AuthFormWrapper>
-    </AuthLayout>
+
+        <p className="text-center text-white/30 text-xs mt-6 animate-fade-in">
+          By signing in you agree to our Terms of Service and Privacy Policy
+        </p>
+      </div>
+    </div>
   )
 }

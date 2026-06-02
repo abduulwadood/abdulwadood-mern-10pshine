@@ -60,6 +60,33 @@ export const authApi = createApi({
         }
       },
     }),
+
+    changePassword: builder.mutation({
+      query: (data) => ({ url: '/auth/change-password', method: 'POST', data }),
+      async onQueryStarted(_, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled
+          if (data.data?.requiresReLogin) {
+            dispatch(logoutAction())
+          }
+        } catch {
+          // handled by component
+        }
+      },
+    }),
+
+    updateProfile: builder.mutation({
+      query: (profileData) => ({ url: '/auth/me', method: 'PATCH', data: profileData }),
+      async onQueryStarted(_, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled
+          const user = data.data?.user ?? data.data
+          if (user) dispatch(updateUser(user))
+        } catch {
+          // handled by component
+        }
+      },
+    }),
   }),
 })
 
@@ -71,4 +98,6 @@ export const {
   useRefreshTokenMutation,
   useLogoutMutation,
   useGetMeQuery,
+  useUpdateProfileMutation,
+  useChangePasswordMutation,
 } = authApi
