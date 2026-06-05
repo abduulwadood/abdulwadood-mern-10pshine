@@ -10,11 +10,20 @@ const {
   NOTES_ERROR_MESSAGES,
 } = require('../config/constants');
 const logger = require('../config/logger');
+const { getIO } = require('../config/socket');
+const { emitNoteEvent } = require('../socket/noteSocket');
+
+// Emit a socket event safely — no-op when Socket.IO isn't initialized (e.g. tests)
+function tryEmit(userId, event, data) {
+  const io = getIO();
+  if (io) emitNoteEvent(io, String(userId), event, data);
+}
 
 const createNote = asyncHandler(async (req, res) => {
   const userId = req.user._id;
   const note = await noteService.createNote(userId, req.body);
   logger.info({ userId, noteId: note._id }, 'Note created by user');
+  tryEmit(userId, 'note:created', { note });
   return sendSuccess(res, { note }, NOTES_SUCCESS_MESSAGES.NOTE_CREATED, HTTP_STATUS.CREATED);
 });
 
@@ -25,6 +34,7 @@ const createVoiceNote = asyncHandler(async (req, res) => {
     { userId, noteId: note._id, language: req.body.voiceLanguage },
     'Voice note created by user'
   );
+  tryEmit(userId, 'note:created', { note });
   return sendSuccess(res, { note }, NOTES_SUCCESS_MESSAGES.VOICE_NOTE_CREATED, HTTP_STATUS.CREATED);
 });
 
@@ -46,6 +56,7 @@ const updateNote = asyncHandler(async (req, res) => {
   const userId = req.user._id;
   const note = await noteService.updateNote(req.params.id, userId, req.body);
   req.logger?.info({ userId, noteId: note._id }, 'Note updated');
+  tryEmit(userId, 'note:updated', { note });
   return sendSuccess(res, { note }, NOTES_SUCCESS_MESSAGES.NOTE_UPDATED);
 });
 
@@ -56,6 +67,7 @@ const updateNoteWithVoice = asyncHandler(async (req, res) => {
     { userId, noteId: note._id, language: req.body.voiceLanguage },
     'Note updated with voice'
   );
+  tryEmit(userId, 'note:updated', { note });
   return sendSuccess(res, { note }, NOTES_SUCCESS_MESSAGES.VOICE_NOTE_UPDATED);
 });
 
@@ -63,13 +75,16 @@ const patchNote = asyncHandler(async (req, res) => {
   const userId = req.user._id;
   const note = await noteService.updateNote(req.params.id, userId, req.body);
   req.logger?.info({ userId, noteId: note._id }, 'Note patched');
+  tryEmit(userId, 'note:updated', { note });
   return sendSuccess(res, { note }, NOTES_SUCCESS_MESSAGES.NOTE_UPDATED);
 });
 
 const deleteNote = asyncHandler(async (req, res) => {
   const userId = req.user._id;
-  await noteService.softDeleteNote(req.params.id, userId);
-  req.logger?.info({ userId, noteId: req.params.id }, 'Note soft-deleted');
+  const noteId = req.params.id;
+  await noteService.softDeleteNote(noteId, userId);
+  req.logger?.info({ userId, noteId }, 'Note soft-deleted');
+  tryEmit(userId, 'note:deleted', { noteId });
   return sendSuccess(res, null, NOTES_SUCCESS_MESSAGES.NOTE_DELETED);
 });
 
@@ -77,13 +92,16 @@ const restoreNote = asyncHandler(async (req, res) => {
   const userId = req.user._id;
   const note = await noteService.restoreNote(req.params.id, userId);
   req.logger?.info({ userId, noteId: note._id }, 'Note restored from trash');
+  tryEmit(userId, 'note:updated', { note });
   return sendSuccess(res, { note }, NOTES_SUCCESS_MESSAGES.NOTE_RESTORED);
 });
 
 const permanentDeleteNote = asyncHandler(async (req, res) => {
   const userId = req.user._id;
-  await noteService.permanentDeleteNote(req.params.id, userId);
-  req.logger?.info({ userId, noteId: req.params.id }, 'Note permanently deleted');
+  const noteId = req.params.id;
+  await noteService.permanentDeleteNote(noteId, userId);
+  req.logger?.info({ userId, noteId }, 'Note permanently deleted');
+  tryEmit(userId, 'note:deleted', { noteId });
   return sendSuccess(res, null, NOTES_SUCCESS_MESSAGES.PERMANENT_DELETED);
 });
 
@@ -94,6 +112,7 @@ const toggleArchive = asyncHandler(async (req, res) => {
     ? NOTES_SUCCESS_MESSAGES.NOTE_ARCHIVED
     : NOTES_SUCCESS_MESSAGES.NOTE_UNARCHIVED;
   req.logger?.info({ userId, noteId: note._id, isArchived: note.isArchived }, 'Note archive toggled');
+  tryEmit(userId, 'note:archived', { noteId: String(note._id), isArchived: note.isArchived });
   return sendSuccess(res, { note, isArchived: note.isArchived }, msg);
 });
 
@@ -104,6 +123,7 @@ const togglePin = asyncHandler(async (req, res) => {
     ? NOTES_SUCCESS_MESSAGES.NOTE_PINNED
     : NOTES_SUCCESS_MESSAGES.NOTE_UNPINNED;
   req.logger?.info({ userId, noteId: note._id, isPinned: note.isPinned }, 'Note pin toggled');
+  tryEmit(userId, 'note:pinned', { noteId: String(note._id), isPinned: note.isPinned });
   return sendSuccess(res, { note, isPinned: note.isPinned }, msg);
 });
 

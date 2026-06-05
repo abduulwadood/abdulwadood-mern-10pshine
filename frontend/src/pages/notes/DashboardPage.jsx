@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
-import { Plus, RefreshCw, X } from 'lucide-react'
+import { Plus, RefreshCw, X, Download, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   selectFilters,
@@ -30,6 +30,8 @@ import { EmptyState } from '../../components/notes/EmptyState'
 import { Pagination } from '../../components/notes/Pagination'
 import { DeleteConfirmDialog } from '../../components/notes/DeleteConfirmDialog'
 import { TagBadge } from '../../components/notes/TagBadge'
+import ExportNotesDialog from '../../components/notes/ExportNotesDialog'
+import ImportNotesDialog from '../../components/notes/ImportNotesDialog'
 
 function ActiveFilterChip({ label, onRemove }) {
   return (
@@ -50,6 +52,8 @@ export default function DashboardPage() {
 
   const [view, setView] = useState(() => localStorage.getItem('notes_view') || 'grid')
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [isExportOpen, setIsExportOpen] = useState(false)
+  const [isImportOpen, setIsImportOpen] = useState(false)
 
   // Build query params
   const queryParams = {
@@ -65,7 +69,7 @@ export default function DashboardPage() {
     ...(filters.isPinned != null ? { isPinned: filters.isPinned } : {}),
   }
 
-  const { data, isLoading, isFetching, error } = useGetNotesQuery(queryParams)
+  const { data, isLoading, isFetching, error, refetch } = useGetNotesQuery(queryParams)
   const [deleteNote, { isLoading: isDeleting }] = useDeleteNoteMutation()
   const [togglePin] = useTogglePinMutation()
   const [toggleArchive] = useToggleArchiveMutation()
@@ -171,14 +175,34 @@ export default function DashboardPage() {
             {isLoading ? '...' : `${pagination.totalNotes} note${pagination.totalNotes !== 1 ? 's' : ''}`}
           </p>
         </div>
-        <Button
-          onClick={() => navigate(ROUTES.NOTE_NEW)}
-          className="gap-1.5 bg-indigo-600 hover:bg-indigo-700"
-          size="sm"
-        >
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">New Note</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsImportOpen(true)}
+            className="gap-1.5 hidden sm:flex"
+          >
+            <Upload className="w-4 h-4" />
+            Import
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsExportOpen(true)}
+            className="gap-1.5 hidden sm:flex"
+          >
+            <Download className="w-4 h-4" />
+            Export
+          </Button>
+          <Button
+            onClick={() => navigate(ROUTES.NOTE_NEW)}
+            className="gap-1.5 bg-indigo-600 hover:bg-indigo-700"
+            size="sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">New Note</span>
+          </Button>
+        </div>
       </div>
 
       {/* Mobile search */}
@@ -264,6 +288,20 @@ export default function DashboardPage() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={confirmDelete}
         isLoading={isDeleting}
+      />
+
+      <ExportNotesDialog
+        isOpen={isExportOpen}
+        onClose={() => setIsExportOpen(false)}
+      />
+
+      <ImportNotesDialog
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        onImported={() => {
+          setIsImportOpen(false)
+          refetch()
+        }}
       />
     </div>
   )

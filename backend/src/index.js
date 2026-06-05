@@ -2,19 +2,27 @@
 
 require('dotenv').config();
 
+const http = require('http');
 const app = require('./server');
 const logger = require('./config/logger');
 const { connectDB, disconnectDB } = require('./config/database');
+const { initSocket } = require('./config/socket');
+const { setupSocketHandlers } = require('./socket');
 const { MESSAGES } = require('./config/constants');
 
 const PORT = parseInt(process.env.PORT, 10) || 5000;
+
+// Create HTTP server and attach Socket.IO before listening
+const httpServer = http.createServer(app);
+const io = initSocket(httpServer);
+setupSocketHandlers(io);
+app.set('io', io);
 
 let server;
 
 async function startServer() {
   try {
-    // Start the HTTP server immediately so the process is ready to accept traffic.
-    server = app.listen(PORT, () => {
+    server = httpServer.listen(PORT, () => {
       logger.info(
         {
           port: PORT,
@@ -25,7 +33,6 @@ async function startServer() {
       );
 
       // Attempt DB connection in the background (single try, no retry spam).
-      // The /api/health endpoint reports "degraded" until the DB comes up.
       connectDB().catch((dbError) => {
         logger.warn(
           { error: dbError.sqlMessage || dbError.message || dbError.code || String(dbError) },
@@ -61,7 +68,6 @@ async function shutdown(signal) {
       process.exit(0);
     });
 
-    // Force exit if graceful shutdown takes longer than 10 s
     setTimeout(() => {
       logger.error('Graceful shutdown timed out — forcing exit');
       process.exit(1);
@@ -73,8 +79,6 @@ async function shutdown(signal) {
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
-
-// ── Unhandled rejections & exceptions ────────────────────────────────────────
 
 process.on('unhandledRejection', (reason) => {
   logger.error({ reason: String(reason) }, 'Unhandled promise rejection');

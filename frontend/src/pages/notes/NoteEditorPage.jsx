@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { getSocket } from '../../lib/socket'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import CharacterCount from '@tiptap/extension-character-count'
+import { ResizableImage } from '../../components/editor/ResizableImage'
 import { toast } from 'sonner'
 import { Keyboard, Mic } from 'lucide-react'
 import {
@@ -31,8 +33,8 @@ import { EditorSkeleton } from '../../components/editor/EditorSkeleton'
 import { ColorPicker } from '../../components/editor/ColorPicker'
 import { TagsInput } from '../../components/editor/TagsInput'
 import { VoiceModePanel } from '../../components/editor/VoiceModePanel'
+import ImageUploadButton from '../../components/editor/ImageUploadButton'
 
-const CHAR_LIMIT = 50000
 
 export default function NoteEditorPage() {
   const { id } = useParams()
@@ -54,9 +56,9 @@ export default function NoteEditorPage() {
   const [draftLoaded, setDraftLoaded] = useState(false)
   const [showLeaveDialog, setShowLeaveDialog] = useState(false)
   const [pendingNav, setPendingNav] = useState(null)
-
   const handleSaveRef = useRef(null)
   const voiceResultRef = useRef(null)
+  const typingTimerRef = useRef(null)
 
   // API
   const { data: noteData, isLoading: isNoteLoading } = useGetNoteByIdQuery(id, { skip: isCreateMode })
@@ -74,10 +76,24 @@ export default function NoteEditorPage() {
         orderedList: { keepMarks: true },
       }),
       Placeholder.configure({ placeholder: 'Start writing your note...' }),
-      CharacterCount.configure({ limit: CHAR_LIMIT }),
+      CharacterCount.configure(),
+      ResizableImage,
     ],
     content: '',
-    onUpdate: () => setIsDirty(true),
+    onUpdate: () => {
+      setIsDirty(true)
+      // Emit typing indicator; auto-clear after 2 s of inactivity
+      if (id) {
+        const sock = getSocket()
+        if (sock?.connected) {
+          sock.emit('note:typing', { noteId: id })
+          clearTimeout(typingTimerRef.current)
+          typingTimerRef.current = setTimeout(() => {
+            sock.emit('note:stopTyping', { noteId: id })
+          }, 2000)
+        }
+      }
+    },
     editorProps: {
       attributes: { class: 'focus:outline-none' },
     },
@@ -321,7 +337,10 @@ export default function NoteEditorPage() {
       />
 
       {/* 2. Formatting toolbar */}
-      <EditorToolbar editor={editor} />
+      <EditorToolbar
+        editor={editor}
+        extra={<ImageUploadButton editor={editor} />}
+      />
 
       {/* 3. Metadata bar */}
       <div className="flex items-center gap-2 px-4 py-2 border-b bg-gray-50 flex-shrink-0 flex-wrap">

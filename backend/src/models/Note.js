@@ -200,8 +200,13 @@ noteSchema.pre('save', function touchLastEdited(next) {
 // Auto-calculate word count, character count, reading time on content change.
 noteSchema.pre('save', function calculateStats(next) {
   if (this.isModified('content')) {
-    const words = this.content ? this.content.trim().split(/\s+/).filter((w) => w.length > 0) : [];
-    this.wordCount = words.length;
+    if (this.content) {
+      const plainText = this.content.replace(/<[^>]*>/g, '').trim();
+      const words = plainText.split(/\s+/).filter((w) => w.length > 0);
+      this.wordCount = words.length;
+    } else {
+      this.wordCount = 0;
+    }
     this.characterCount = this.content ? this.content.length : 0;
     this.readingTimeSeconds = Math.ceil((this.wordCount / 200) * 60);
   }

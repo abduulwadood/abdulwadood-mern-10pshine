@@ -34,3 +34,7 @@ Thumbs.db
 
 # Testing
 .mocha_env
+
+# User uploaded images — do not commit to git
+uploads/images/*
+!uploads/images/.gitkeep
