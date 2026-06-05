@@ -76,7 +76,7 @@ const VALIDATION = {
   USERNAME_MIN_LENGTH: 3,
   USERNAME_MAX_LENGTH: 50,
   NOTE_TITLE_MAX_LENGTH: 255,
-  NOTE_CONTENT_MAX_LENGTH: 10000,
+  NOTE_CONTENT_MAX_LENGTH: 5242880,
 };
 
 // Log Levels
@@ -116,7 +116,7 @@ const USER_CONSTANTS = {
 const NOTE_CONSTANTS = {
   TITLE_MIN_LENGTH: 1,
   TITLE_MAX_LENGTH: 200,
-  CONTENT_MAX_LENGTH: 50000,
+  CONTENT_MAX_LENGTH: 5242880, // 5 MB — accommodates base64-embedded images
   MAX_TAGS: 10,
   TAG_MAX_LENGTH: 30,
   DEFAULT_COLOR: '#ffffff',
@@ -216,7 +216,7 @@ const NOTES_CONSTANTS = {
   DEFAULT_SORT: process.env.NOTES_DEFAULT_SORT || '-createdAt',
   MAX_TITLE_LENGTH: parseInt(process.env.NOTES_MAX_TITLE_LENGTH, 10) || 200,
   MIN_TITLE_LENGTH: 1,
-  MAX_CONTENT_LENGTH: parseInt(process.env.NOTES_MAX_CONTENT_LENGTH, 10) || 50000,
+  MAX_CONTENT_LENGTH: parseInt(process.env.NOTES_MAX_CONTENT_LENGTH, 10) || 5242880,
   MAX_TAGS: parseInt(process.env.NOTES_MAX_TAGS, 10) || 10,
   MAX_TAG_LENGTH: 30,
   DEFAULT_COLOR: '#ffffff',
@@ -296,7 +296,7 @@ const NOTES_ERROR_MESSAGES = {
   TITLE_REQUIRED: 'Note title is required.',
   CONTENT_REQUIRED: 'Note content is required.',
   TITLE_TOO_LONG: 'Title cannot exceed 200 characters.',
-  CONTENT_TOO_LONG: 'Content cannot exceed 50000 characters.',
+  CONTENT_TOO_LONG: 'Content is too large.',
   TOO_MANY_TAGS: 'Cannot add more than 10 tags to a note.',
   TAG_TOO_LONG: 'Each tag cannot exceed 30 characters.',
   INVALID_COLOR: 'Invalid note color. Please use a valid hex color.',
