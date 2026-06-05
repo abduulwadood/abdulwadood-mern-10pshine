@@ -81,7 +81,7 @@ const TOOLBAR_GROUPS = [
   },
 ]
 
-export function EditorToolbar({ editor }) {
+export function EditorToolbar({ editor, extra }) {
   if (!editor) return null
 
   return (
@@ -111,6 +111,12 @@ export function EditorToolbar({ editor }) {
             ))}
           </div>
         ))}
+        {extra && (
+          <>
+            <Separator orientation="vertical" className="h-5 mx-1" />
+            {extra}
+          </>
+        )}
       </div>
     </TooltipProvider>
   )

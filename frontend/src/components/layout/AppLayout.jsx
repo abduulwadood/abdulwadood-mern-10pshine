@@ -17,6 +17,8 @@ import { StatsSidebar } from '../dashboard/StatsSidebar'
 import { TagsSidebar } from '../dashboard/TagsSidebar'
 import { QuickFilters } from '../dashboard/QuickFilters'
 import { SearchBar } from '../notes/SearchBar'
+import ConnectionStatus from '../common/ConnectionStatus'
+import { useSocket } from '../../hooks/useSocket'
 import { cn } from '../../lib/utils'
 
 function SidebarSection({ title, children }) {
@@ -35,6 +37,9 @@ export default function AppLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+
+  // Initialize socket connection for real-time updates (single instance for whole app)
+  useSocket()
 
   const isDashboard = location.pathname === ROUTES.DASHBOARD
   const initials = extractInitials(user?.firstName, user?.lastName)
@@ -74,6 +79,7 @@ export default function AppLayout() {
         )}
 
         <div className="ml-auto flex items-center gap-2">
+          <ConnectionStatus />
           {/* User avatar dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

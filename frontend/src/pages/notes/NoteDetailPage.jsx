@@ -1,302 +1,294 @@
-import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { toast } from 'sonner'
-import {
-  ArrowLeft, Pin, PinOff, Archive, ArchiveRestore,
-  Pencil, Trash2, Mic, Clock, FileText, Calendar,
-  RefreshCw, Loader2,
-} from 'lucide-react'
+import { useState, useEffect } from 'react'
 import {
   useGetNoteByIdQuery,
   useDeleteNoteMutation,
-  useTogglePinMutation,
   useToggleArchiveMutation,
-} from '../../features/notes/notesApi'
-import { ROUTES, TOAST_MESSAGES } from '../../constants'
-import { Button } from '../../components/ui/button'
-import { Badge } from '../../components/ui/badge'
-import { TagBadge } from '../../components/notes/TagBadge'
-import { DeleteConfirmDialog } from '../../components/notes/DeleteConfirmDialog'
-import { Skeleton } from '../../components/ui/skeleton'
-import { formatDate, formatRelativeDate, formatWordCount, formatReadingTime } from '../../utils/formatters'
-import { cn } from '../../lib/utils'
+  useTogglePinMutation,
+} from '@/features/notes/notesApi'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { ChevronLeft, Edit, Trash2, Archive, Pin, Copy, Loader2, Mic, Layers, Keyboard } from 'lucide-react'
+import ExportNoteButton from '@/components/notes/ExportNoteButton'
+import { ROUTES } from '@/constants'
+import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
+import './NoteDetailPage.css'
 
-function DetailSkeleton() {
-  return (
-    <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-      <div className="flex items-center gap-4">
-        <Skeleton className="h-8 w-24" />
-        <Skeleton className="h-8 w-20 ml-auto" />
-        <Skeleton className="h-8 w-20" />
-      </div>
-      <div className="rounded-2xl p-6 space-y-4 bg-white border">
-        <div className="flex gap-2">
-          <Skeleton className="h-5 w-16 rounded-full" />
-          <Skeleton className="h-5 w-20 rounded-full" />
-        </div>
-        <Skeleton className="h-8 w-3/4" />
-        <div className="flex gap-4">
-          <Skeleton className="h-4 w-20" />
-          <Skeleton className="h-4 w-24" />
-        </div>
-      </div>
-      <div className="space-y-3">
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-5/6" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-4/5" />
-      </div>
-    </div>
-  )
+const timeAgo = (d) => {
+  const s = Math.floor((Date.now() - new Date(d)) / 1000)
+  if (s < 60)     return 'just now'
+  if (s < 3600)   return `${Math.floor(s / 60)}m ago`
+  if (s < 86400)  return `${Math.floor(s / 3600)}h ago`
+  if (s < 604800) return `${Math.floor(s / 86400)}d ago`
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-export default function NoteDetailPage() {
-  const { id: noteId } = useParams()
+const inputConfig = {
+  voice: { Icon: Mic,      label: 'Voice', cls: 'nd-badge-voice' },
+  mixed: { Icon: Layers,   label: 'Mixed', cls: 'nd-badge-mixed' },
+  typed: { Icon: Keyboard, label: 'Typed', cls: 'nd-badge-typed' },
+}
+
+const useProgress = () => {
+  const [p, setP] = useState(0)
+  useEffect(() => {
+    const h = () => {
+      const el = document.documentElement
+      setP(el.scrollHeight > el.clientHeight
+        ? (el.scrollTop / (el.scrollHeight - el.clientHeight)) * 100
+        : 0)
+    }
+    window.addEventListener('scroll', h, { passive: true })
+    return () => window.removeEventListener('scroll', h)
+  }, [])
+  return p
+}
+
+const NoteDetailPage = () => {
+  const { id }   = useParams()
   const navigate = useNavigate()
+  const progress = useProgress()
 
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [visible,     setVisible]     = useState(false)
+  const [deleteOpen,  setDeleteOpen]  = useState(false)
+  const [archiveOpen, setArchiveOpen] = useState(false)
 
-  const { data, isLoading, error } = useGetNoteByIdQuery(noteId, { skip: !noteId })
-  const [deleteNote, { isLoading: isDeleting }] = useDeleteNoteMutation()
-  const [togglePin, { isLoading: isPinning }] = useTogglePinMutation()
-  const [toggleArchive, { isLoading: isArchiving }] = useToggleArchiveMutation()
+  const { data, isLoading, error } = useGetNoteByIdQuery(id)
+  const [deleteNote,    { isLoading: deleting  }] = useDeleteNoteMutation()
+  const [toggleArchive, { isLoading: archiving }] = useToggleArchiveMutation()
+  const [togglePin,     { isLoading: pinning   }] = useTogglePinMutation()
 
-  const note = data?.data?.note ?? data?.data
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(true), 40)
+    return () => clearTimeout(t)
+  }, [])
 
-  async function handleDelete() {
+  if (isLoading) return (
+    <div className="nd-center">
+      <Loader2 style={{ width: 28, height: 28, color: '#6366f1' }} className="animate-spin" />
+    </div>
+  )
+
+  if (error || !data?.data?.note) return (
+    <div className="nd-center">
+      <p className="nd-center-title">Note not found</p>
+      <button className="nd-back-btn" onClick={() => navigate(ROUTES.DASHBOARD)}>
+        <ChevronLeft size={16} /> Back to Dashboard
+      </button>
+    </div>
+  )
+
+  const note = data.data.note
+  const { Icon: InputIcon, label: inputLabel, cls: inputCls } =
+    inputConfig[note.inputMethod] ?? inputConfig.typed
+
+  const handleDelete = async () => {
     try {
-      await deleteNote(noteId).unwrap()
-      toast.success(TOAST_MESSAGES.NOTE_DELETED)
-      navigate(ROUTES.DASHBOARD, { replace: true })
-    } catch {
-      toast.error(TOAST_MESSAGES.ERROR_GENERIC)
-    }
+      await deleteNote(id).unwrap()
+      toast.success('Note deleted')
+      navigate(ROUTES.DASHBOARD)
+    } catch { toast.error('Could not delete note') }
   }
 
-  async function handlePin() {
+  const handleArchive = async () => {
     try {
-      await togglePin(noteId).unwrap()
-      toast.success(note?.isPinned ? TOAST_MESSAGES.NOTE_UNPINNED : TOAST_MESSAGES.NOTE_PINNED)
-    } catch {
-      toast.error(TOAST_MESSAGES.ERROR_GENERIC)
-    }
+      await toggleArchive(id).unwrap()
+      toast.success(note.isArchived ? 'Note restored' : 'Note archived')
+      setArchiveOpen(false)
+    } catch { toast.error('Could not archive note') }
   }
 
-  async function handleArchive() {
+  const handlePin = async () => {
     try {
-      await toggleArchive(noteId).unwrap()
-      toast.success(note?.isArchived ? TOAST_MESSAGES.NOTE_UNARCHIVED : TOAST_MESSAGES.NOTE_ARCHIVED)
-    } catch {
-      toast.error(TOAST_MESSAGES.ERROR_GENERIC)
-    }
+      await togglePin(id).unwrap()
+      toast.success(note.isPinned ? 'Unpinned' : 'Pinned to top')
+    } catch { toast.error('Could not pin note') }
   }
 
-  const isUrdu = note?.voiceLanguage === 'ur-PK'
-
-  if (isLoading) return <DetailSkeleton />
-
-  if (error || (!isLoading && !note)) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <FileText className="w-12 h-12 text-gray-300" />
-        <p className="text-gray-500 text-sm">Note not found or couldn&apos;t be loaded.</p>
-        <Button variant="outline" size="sm" onClick={() => navigate(ROUTES.DASHBOARD)}>
-          <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to notes
-        </Button>
-      </div>
-    )
+  const handleCopy = () => {
+    navigator.clipboard.writeText(note.content.replace(/<[^>]*>/g, ''))
+    toast.success('Copied to clipboard')
   }
 
   return (
-    <div className="flex flex-col min-h-full">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 lg:px-6 py-3 border-b border-gray-200 bg-white sticky top-16 z-10">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span className="hidden sm:inline">Back</span>
-        </button>
+    <>
+      {/* Reading progress bar */}
+      <div className="nd-progress" style={{ width: `${progress}%` }} />
 
-        <div className="ml-auto flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePin}
-            disabled={isPinning}
-            className={cn(note?.isPinned && 'text-indigo-600 border-indigo-300 bg-indigo-50')}
-          >
-            {isPinning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> :
-              note?.isPinned ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline ml-1.5">{note?.isPinned ? 'Unpin' : 'Pin'}</span>
-          </Button>
+      <div className={cn('nd-root', visible && 'nd-root--visible')}>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleArchive}
-            disabled={isArchiving}
-          >
-            {isArchiving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> :
-              note?.isArchived ? <ArchiveRestore className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline ml-1.5">{note?.isArchived ? 'Unarchive' : 'Archive'}</span>
-          </Button>
+        {/* ── Sticky navbar ── */}
+        <header className="nd-nav nd-anim-nav">
+          <button className="nd-back-btn" onClick={() => navigate(ROUTES.DASHBOARD)}>
+            <ChevronLeft size={16} /> Back
+          </button>
 
-          <Button
-            size="sm"
-            onClick={() => navigate(`/notes/${noteId}/edit`)}
-            className="bg-indigo-600 hover:bg-indigo-700"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline ml-1.5">Edit</span>
-          </Button>
+          <div className="nd-nav-right">
+            <button
+              className={cn('nd-icon-btn', note.isPinned && 'nd-icon-btn--on')}
+              onClick={handlePin}
+              disabled={pinning}
+              title={note.isPinned ? 'Unpin' : 'Pin'}
+            >
+              <Pin size={15} className={note.isPinned ? 'fill-current' : ''} />
+            </button>
+            <button className="nd-icon-btn" onClick={handleCopy} title="Copy text">
+              <Copy size={15} />
+            </button>
+            <button
+              className="nd-icon-btn"
+              onClick={() => setArchiveOpen(true)}
+              title={note.isArchived ? 'Restore' : 'Archive'}
+            >
+              <Archive size={15} />
+            </button>
+            <ExportNoteButton noteId={note._id} noteTitle={note.title} />
+            <button
+              className="nd-edit-btn"
+              onClick={() => navigate(ROUTES.NOTE_EDIT.replace(':id', id))}
+            >
+              <Edit size={14} /> Edit
+            </button>
+            <button
+              className="nd-del-btn"
+              onClick={() => setDeleteOpen(true)}
+              title="Delete note"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        </header>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowDeleteDialog(true)}
-            className="text-red-600 border-red-200 hover:bg-red-50"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
-        </div>
-      </div>
+        {/* ── Title block (same bg as page — no color change) ── */}
+        <div className="nd-title-block">
+          <div className="nd-title-inner">
 
-      {/* Note content */}
-      <div className="flex-1 overflow-auto px-4 lg:px-6 py-6">
-        <div className="max-w-3xl mx-auto space-y-6">
-          {/* Header card */}
-          <div
-            className="rounded-2xl border p-6 space-y-4"
-            style={{ backgroundColor: note?.color || '#ffffff' }}
-          >
             {/* Badges */}
-            <div className="flex items-center flex-wrap gap-2">
-              {note?.isPinned && (
-                <Badge variant="secondary" className="gap-1">
-                  <Pin className="w-3 h-3 fill-current" />Pinned
-                </Badge>
-              )}
-              {note?.isArchived && (
-                <Badge variant="secondary" className="gap-1">
-                  <Archive className="w-3 h-3" />Archived
-                </Badge>
-              )}
-              {note?.inputMethod && note.inputMethod !== 'typed' && (
-                <Badge variant="secondary" className="gap-1">
-                  <Mic className="w-3 h-3" />
-                  {note.inputMethod === 'voice' ? 'Voice Note' : 'Mixed Note'}
-                </Badge>
-              )}
-              {note?.voiceLanguage && (
-                <Badge variant="outline">
-                  {note.voiceLanguage === 'ur-PK' ? '🇵🇰 اردو' : '🇺🇸 English'}
-                </Badge>
-              )}
+            <div className="nd-badges nd-anim nd-d1">
+              <span className={cn('nd-badge', inputCls)}>
+                <InputIcon size={11} /> {inputLabel}
+              </span>
+              {note.isPinned   && <span className="nd-badge nd-badge--pin">📌 Pinned</span>}
+              {note.isArchived && <span className="nd-badge nd-badge--arch">🗂 Archived</span>}
+              {note.voiceLanguage === 'ur-PK' && <span className="nd-badge nd-badge--urdu">اردو</span>}
             </div>
 
             {/* Title */}
-            <h1 className={cn('text-2xl font-bold text-gray-900 leading-tight', isUrdu && 'text-right')}
-              dir={isUrdu ? 'rtl' : 'ltr'}>
-              {note?.title || 'Untitled'}
-            </h1>
+            <h1 className="nd-title nd-anim nd-d2">{note.title}</h1>
 
-            {/* Metadata */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
-              <span className="flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" />
-                {formatReadingTime(note?.readingTimeSeconds)}
+            {/* Meta row */}
+            <div className="nd-meta nd-anim nd-d3">
+              <span className="nd-chip">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                {Math.max(1, Math.ceil((note.wordCount || 0) / 200))} min read
               </span>
-              <span className="flex items-center gap-1">
-                <FileText className="w-3.5 h-3.5" />
-                {formatWordCount(note?.wordCount)}
+              <span className="nd-dot" />
+              <span className="nd-chip">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+                {note.wordCount || 0} words
               </span>
-              <span className="flex items-center gap-1">
-                <Calendar className="w-3.5 h-3.5" />
-                Created {formatDate(note?.createdAt)}
+              <span className="nd-dot" />
+              <span className="nd-chip">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                {new Date(note.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
               </span>
-              {note?.updatedAt && note.updatedAt !== note.createdAt && (
-                <span className="flex items-center gap-1">
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  Updated {formatRelativeDate(note.updatedAt)}
-                </span>
-              )}
+              <span className="nd-dot" />
+              <span className="nd-chip nd-chip--italic">Updated {timeAgo(note.updatedAt)}</span>
             </div>
-          </div>
 
-          {/* Note content */}
-          <div className="bg-white rounded-2xl border p-6">
-            {note?.content ? (
-              <div
-                className={cn(
-                  'prose prose-sm max-w-none text-gray-700',
-                  isUrdu && 'text-right font-[system-ui]'
-                )}
-                dir={isUrdu ? 'rtl' : 'ltr'}
-                lang={note?.voiceLanguage || 'en'}
-                dangerouslySetInnerHTML={{ __html: note.content }}
-              />
-            ) : (
-              <p className="text-gray-400 text-sm italic">No content</p>
+            {/* Tags */}
+            {note.tags?.length > 0 && (
+              <div className="nd-tags nd-anim nd-d4">
+                {note.tags.map(t => <span key={t} className="nd-tag">#{t}</span>)}
+              </div>
             )}
           </div>
+        </div>
 
-          {/* Tags */}
-          {note?.tags?.length > 0 && (
-            <div className="bg-white rounded-2xl border p-4">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Tags</p>
-              <div className="flex flex-wrap gap-2">
-                {note.tags.map(tag => (
-                  <TagBadge key={tag} tag={tag} />
-                ))}
-              </div>
-            </div>
-          )}
+        {/* ── Divider with indigo accent ── */}
+        <div className="nd-divider-wrap nd-anim nd-d5">
+          <div className="nd-divider" />
+        </div>
 
-          {/* Action bar (bottom) */}
-          <div className="flex items-center justify-between gap-3 pt-2 pb-8">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowDeleteDialog(true)}
-              className="text-red-600 border-red-200 hover:bg-red-50 gap-1.5"
-            >
-              <Trash2 className="w-4 h-4" />
-              Delete
-            </Button>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleArchive}
-                disabled={isArchiving}
-                className="gap-1.5"
-              >
-                {note?.isArchived ? <ArchiveRestore className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
-                {note?.isArchived ? 'Unarchive' : 'Archive'}
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => navigate(`/notes/${noteId}/edit`)}
-                className="bg-indigo-600 hover:bg-indigo-700 gap-1.5"
-              >
-                <Pencil className="w-4 h-4" />
-                Edit Note
-              </Button>
-            </div>
+        {/* ── Content card ── */}
+        <div className="nd-content-wrap">
+          <div className="nd-card nd-anim nd-d6">
+            <article
+              className={cn('nd-prose', note.voiceLanguage === 'ur-PK' && 'nd-prose--rtl')}
+              dangerouslySetInnerHTML={{ __html: note.content }}
+            />
           </div>
         </div>
+
+        {/* ── Footer ── */}
+        <footer className="nd-footer nd-anim nd-d7">
+          <div className="nd-footer-inner">
+            <span className="nd-footer-id">ID: {note._id?.slice(-8)}</span>
+            <div className="nd-footer-actions">
+              <button className="nd-fb nd-fb--red" onClick={() => setDeleteOpen(true)}>
+                <Trash2 size={13} /> Delete
+              </button>
+              <button className="nd-fb" onClick={() => setArchiveOpen(true)}>
+                <Archive size={13} /> {note.isArchived ? 'Restore' : 'Archive'}
+              </button>
+              <button
+                className="nd-fb nd-fb--primary"
+                onClick={() => navigate(ROUTES.NOTE_EDIT.replace(':id', id))}
+              >
+                <Edit size={13} /> Edit Note
+              </button>
+            </div>
+          </div>
+        </footer>
       </div>
 
-      <DeleteConfirmDialog
-        isOpen={showDeleteDialog}
-        onClose={() => setShowDeleteDialog(false)}
-        onConfirm={handleDelete}
-        isLoading={isDeleting}
-      />
-    </div>
+      {/* ── Delete dialog ── */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete note?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{note.title}" will be permanently deleted. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleting ? <><Loader2 size={14} className="animate-spin mr-1" />Deleting…</> : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Archive dialog ── */}
+      <AlertDialog open={archiveOpen} onOpenChange={setArchiveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{note.isArchived ? 'Restore note?' : 'Archive note?'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {note.isArchived ? 'Move back to your active notes.' : 'Move this note to your archive.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchive} disabled={archiving}>
+              {archiving
+                ? <><Loader2 size={14} className="animate-spin mr-1" />Working…</>
+                : (note.isArchived ? 'Restore' : 'Archive')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
+
+export default NoteDetailPage
