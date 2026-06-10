@@ -524,7 +524,7 @@ Quality Gate Standards:
 ## 👨‍💻 Author
 
 **Abdul Wadood**
-- GitHub: [@abdulwadood](https://github.com/abdulwadood
+- GitHub: [@abdulwadood](https://github.com/abdulwadood)
 - University: FAST-NUCES Karachi Campus
 - Internship: 10Pearls Shine Internship Program (April 2026 – June 2026)
 
