@@ -14,16 +14,6 @@ A production-ready, full-stack Notes Application built with the MERN stack featu
 
 </div>
 
----
-
-## 📸 Screenshots
-
-| Dashboard | Note Editor | Note Reader |
-|-----------|-------------|-------------|
-| ![Dashboard](https://placehold.co/400x250/6366f1/ffffff?text=Dashboard) | ![Editor](https://placehold.co/400x250/6366f1/ffffff?text=Editor) | ![Reader](https://placehold.co/400x250/6366f1/ffffff?text=Reader) |
-
----
-
 ## ✨ Features
 
 ### 🔐 Authentication & Security
