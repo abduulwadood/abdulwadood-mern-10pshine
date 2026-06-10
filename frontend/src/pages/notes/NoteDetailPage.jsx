@@ -175,7 +175,6 @@ const NoteDetailPage = () => {
 
         {/* ── Reading column ── */}
         <main className="nd-column">
-
           {/* Badges */}
           <div className="nd-eyebrow nd-a nd-a1">
             <span className={cn('nd-badge', inputCls)}>
@@ -233,12 +232,11 @@ const NoteDetailPage = () => {
           {/* Divider */}
           <div className="nd-divider nd-a nd-a5" />
 
-          {/* Prose — NO card wrapper */}
+          {/* Prose */}
           <article
             className={cn('nd-prose nd-a nd-a6', note.voiceLanguage === 'ur-PK' && 'nd-prose--rtl')}
             dangerouslySetInnerHTML={{ __html: note.content }}
           />
-
         </main>
 
         {/* ── Sticky footer ── */}

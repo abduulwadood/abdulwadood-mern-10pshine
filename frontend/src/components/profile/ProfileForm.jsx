@@ -1,17 +1,23 @@
 import { useState } from 'react'
-import { Pencil, Save, Loader2 } from 'lucide-react'
+import { Pencil, Save, Loader2, Camera, UserCircle2 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
+import { toast } from 'sonner'
+import { useUploadImageMutation } from '../../features/images/imagesApi'
 
 export function ProfileForm({ user, onSave, onCancel, isSaving }) {
   const [firstName, setFirstName] = useState(user?.firstName || '')
   const [lastName, setLastName]   = useState(user?.lastName  || '')
+  const [profilePicture, setProfilePicture] = useState(user?.profilePicture || '')
   const [errors, setErrors]       = useState({})
+
+  const [uploadImage, { isLoading: isUploading }] = useUploadImageMutation()
 
   const hasChanges =
     firstName.trim() !== (user?.firstName || '') ||
-    lastName.trim()  !== (user?.lastName  || '')
+    lastName.trim()  !== (user?.lastName  || '') ||
+    profilePicture   !== (user?.profilePicture || '')
 
   function validate() {
     const e = {}
@@ -25,15 +31,65 @@ export function ProfileForm({ user, onSave, onCancel, isSaving }) {
   function handleSubmit(e) {
     e.preventDefault()
     if (!validate()) return
-    onSave({ firstName: firstName.trim(), lastName: lastName.trim() })
+    onSave({ firstName: firstName.trim(), lastName: lastName.trim(), profilePicture })
+  }
+
+  async function handleFileChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = '' // Reset input
+
+    if (file.size > 5 * 1024 * 1024) {
+      return toast.error('Image must be under 5MB')
+    }
+    if (!file.type.startsWith('image/')) {
+      return toast.error('Please upload an image file')
+    }
+
+    const formData = new FormData()
+    formData.append('image', file)
+
+    try {
+      const res = await uploadImage(formData).unwrap()
+      if (res.data && res.data.url) {
+        setProfilePicture(res.data.url)
+        toast.success('Profile picture updated successfully')
+      }
+    } catch (err) {
+      toast.error('Failed to upload image')
+    }
   }
 
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-xl border p-6">
-      <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+      <h3 className="text-base font-semibold text-gray-900 mb-6 flex items-center gap-2">
         <Pencil className="w-4 h-4 text-indigo-600" />
         Edit Profile
       </h3>
+
+      {/* Profile Picture Upload */}
+      <div className="mb-6 flex flex-col items-center sm:flex-row sm:items-start gap-4">
+        <div className="relative group">
+          {profilePicture ? (
+            <img src={profilePicture} alt="Profile" className="w-20 h-20 rounded-full object-cover border border-gray-200" />
+          ) : (
+            <UserCircle2 className="w-20 h-20 text-gray-300" strokeWidth={1} />
+          )}
+          <label className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
+            {isUploading ? <Loader2 className="w-6 h-6 text-white animate-spin" /> : <Camera className="w-6 h-6 text-white" />}
+            <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} disabled={isUploading || isSaving} />
+          </label>
+        </div>
+        <div className="text-center sm:text-left flex-1 mt-2 sm:mt-0">
+          <p className="text-sm font-medium text-gray-900">Profile Picture</p>
+          <p className="text-xs text-gray-500 mt-0.5 mb-2">Upload a picture under 5MB</p>
+          {profilePicture && (
+            <button type="button" onClick={() => setProfilePicture('')} className="text-xs font-medium text-red-500 hover:text-red-600">
+              Remove picture
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* First name */}
       <div className="mb-4">

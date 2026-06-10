@@ -5,8 +5,6 @@ import notesReducer from '../features/notes/notesSlice'
 import { authApi } from '../features/auth/authApi'
 import { notesApi } from '../features/notes/notesApi'
 import { imagesApi } from '../features/images/imagesApi'
-import { commentsApi } from '../features/comments/commentsApi'
-
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -14,14 +12,12 @@ export const store = configureStore({
     [authApi.reducerPath]: authApi.reducer,
     [notesApi.reducerPath]: notesApi.reducer,
     [imagesApi.reducerPath]: imagesApi.reducer,
-    [commentsApi.reducerPath]: commentsApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware()
       .concat(authApi.middleware)
       .concat(notesApi.middleware)
-      .concat(imagesApi.middleware)
-      .concat(commentsApi.middleware),
+      .concat(imagesApi.middleware),
 })
 
 setupListeners(store.dispatch)

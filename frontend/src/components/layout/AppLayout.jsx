@@ -65,11 +65,10 @@ export default function AppLayout() {
 
         {/* Logo */}
         <Link to={ROUTES.DASHBOARD} className="flex items-center gap-2 flex-shrink-0">
-          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-            <FileText className="w-4 h-4 text-white" />
-          </div>
+          <img src="/notesapp-logo.png" alt="Pearl Notes Logo" className="w-8 h-8 object-contain rounded-lg" />
           <span className="font-bold text-lg text-gray-900 hidden sm:block">{APP_NAME}</span>
         </Link>
+
 
         {/* Search bar — center, desktop, only on dashboard */}
         {isDashboard && (
@@ -83,8 +82,12 @@ export default function AppLayout() {
           {/* User avatar dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-semibold text-sm flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-indigo-300 transition-all select-none">
-                {initials}
+              <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-semibold text-sm flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-indigo-300 transition-all select-none overflow-hidden border border-gray-100">
+                {user?.profilePicture ? (
+                  <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  initials
+                )}
               </div>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">

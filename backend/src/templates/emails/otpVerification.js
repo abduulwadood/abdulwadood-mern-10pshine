@@ -22,7 +22,7 @@ function generateOTPEmailTemplate({ firstName, username, otp, expiresInMinutes }
         <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
           <tr>
             <td style="background:#4f46e5;padding:32px 40px;text-align:center;">
-              <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">Notes App</h1>
+              <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">PearlNotes</h1>
             </td>
           </tr>
           <tr>
@@ -42,7 +42,7 @@ function generateOTPEmailTemplate({ firstName, username, otp, expiresInMinutes }
           </tr>
           <tr>
             <td style="background:#f9fafb;padding:24px 40px;text-align:center;">
-              <p style="margin:0;font-size:12px;color:#9ca3af;">&copy; ${new Date().getFullYear()} Notes App. All rights reserved.</p>
+              <p style="margin:0;font-size:12px;color:#9ca3af;">&copy; ${new Date().getFullYear()} PearlNotes. All rights reserved.</p>
             </td>
           </tr>
         </table>
@@ -52,7 +52,7 @@ function generateOTPEmailTemplate({ firstName, username, otp, expiresInMinutes }
 </body>
 </html>`;
 
-  const text = `Hi ${displayName},\n\nYour verification code is: ${displayOTP}\n\nThis code expires in ${expiresInMinutes} minutes.\n\nIf you did not request this, please ignore this email.\n\nNotes App`;
+  const text = `Hi ${displayName},\n\nYour verification code is: ${displayOTP}\n\nThis code expires in ${expiresInMinutes} minutes.\n\nIf you did not request this, please ignore this email.\n\nPearlNotes`;
 
   return { subject: 'Verify your email address', html, text };
 }

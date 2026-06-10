@@ -8,8 +8,12 @@ export function ProfileHeader({ user, onEditClick }) {
   return (
     <div className="bg-white rounded-xl border p-6 flex flex-col items-center text-center sm:flex-row sm:text-left sm:items-start gap-6">
       {/* Avatar */}
-      <div className="flex-shrink-0 w-20 h-20 rounded-full bg-gradient-to-br from-indigo-400 to-purple-600 flex items-center justify-center text-white text-2xl font-bold select-none">
-        {initials}
+      <div className="flex-shrink-0 w-20 h-20 rounded-full bg-gradient-to-br from-indigo-400 to-purple-600 flex items-center justify-center text-white text-2xl font-bold select-none overflow-hidden border border-gray-100">
+        {user?.profilePicture ? (
+          <img src={user.profilePicture} alt={`${user.firstName}'s profile`} className="w-full h-full object-cover" />
+        ) : (
+          initials
+        )}
       </div>
 
       {/* Info */}

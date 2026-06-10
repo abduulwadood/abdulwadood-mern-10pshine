@@ -287,7 +287,7 @@ async function changePassword(req, res, next) {
  */
 async function updateMe(req, res, next) {
   try {
-    const ALLOWED = ['firstName', 'lastName'];
+    const ALLOWED = ['firstName', 'lastName', 'profilePicture'];
     const updates = {};
     for (const key of ALLOWED) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];

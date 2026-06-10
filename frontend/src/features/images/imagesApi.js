@@ -12,6 +12,18 @@ export const imagesApi = createApi({
       providesTags: ['Images'],
     }),
 
+    uploadImage: builder.mutation({
+      query: (formData) => ({
+        url: '/images/upload',
+        method: 'POST',
+        data: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }),
+      invalidatesTags: ['Images'],
+    }),
+
     deleteImage: builder.mutation({
       query: (imageId) => ({
         url: `/images/${imageId}`,
@@ -25,5 +37,6 @@ export const imagesApi = createApi({
 
 export const {
   useGetUserImagesQuery,
+  useUploadImageMutation,
   useDeleteImageMutation,
 } = imagesApi

@@ -17,7 +17,7 @@ export function AccountInfo({ user }) {
           </p>
           <p className="text-sm font-medium text-gray-900">{user?.email}</p>
           <p className="text-xs text-gray-400 mt-0.5">
-            This email is linked to your Notes App account and cannot be changed
+            This email is linked to your PearlNotes account and cannot be changed
           </p>
         </div>
 

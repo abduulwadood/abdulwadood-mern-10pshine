@@ -8,7 +8,7 @@
 function generatePasswordResetEmailTemplate({ firstName, username }) {
   const displayName = firstName || username;
   return {
-    subject: 'Reset your Notes App password',
+    subject: 'Reset your PearlNotes password',
     html: `<p>Hi ${displayName}, password reset coming soon.</p>`,
     text: `Hi ${displayName}, password reset coming soon.`,
   };

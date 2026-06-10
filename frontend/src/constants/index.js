@@ -1,5 +1,5 @@
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
-export const APP_NAME = import.meta.env.VITE_APP_NAME || 'Notes App'
+export const APP_NAME = import.meta.env.VITE_APP_NAME || 'PearlNotes'
 export const ACCESS_TOKEN_KEY = import.meta.env.VITE_ACCESS_TOKEN_KEY || 'notes_app_access_token'
 export const USER_KEY = import.meta.env.VITE_USER_KEY || 'notes_app_user'
 
